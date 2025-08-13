@@ -437,7 +437,7 @@
                     <span id="connectionStatus" class="connection-status connecting">連接中...</span>
                 </div>
             </div>
-            
+
             <div class="header-actions">
                 <button class="btn btn-warning" id="leaveModeBtn" onclick="toggleLeaveMode()">標記請假</button>
                 <button class="btn btn-purple" onclick="showResults()">點名結果</button>
@@ -468,15 +468,15 @@
             <div class="firebase-config">
                 <h4>Firebase 設定 JSON</h4>
                 <textarea id="firebaseConfig" placeholder='{
-  "apiKey": "your-api-key",
-  "authDomain": "your-project.firebaseapp.com",
-  "projectId": "your-project-id",
-  "storageBucket": "your-project.appspot.com",
-  "messagingSenderId": "123456789",
-  "appId": "your-app-id"
+"apiKey": "your-api-key",
+"authDomain": "your-project.firebaseapp.com",
+"projectId": "your-project-id",
+"storageBucket": "your-project.appspot.com",
+"messagingSenderId": "123456789",
+"appId": "your-app-id"
 }'></textarea>
             </div>
-            
+
             <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
                 <button class="btn btn-primary" onclick="saveFirebaseConfig()">儲存設定</button>
                 <button class="btn btn-danger" onclick="useOfflineMode()">離線模式</button>
@@ -550,7 +550,7 @@
     <script type="module">
         // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, writeBatch, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 全域變數 ---
         let students = [];
@@ -800,6 +800,20 @@
             if (!attendanceHistory[currentDateKey]) {
                 attendanceHistory[currentDateKey] = {};
             }
+
+            // --- 新增：處理離線模式下的舊紀錄刪除 ---
+            const twoDaysAgo = new Date();
+            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+            const twoDaysAgoStr = twoDaysAgo.toISOString().split('T')[0];
+
+            for (const date in attendanceHistory) {
+                if (date < twoDaysAgoStr) {
+                    delete attendanceHistory[date];
+                    console.log(`離線模式：已刪除過期記錄 ${date}`);
+                }
+            }
+            saveOfflineData();
+            // --- 結束新增 ---
             
             updateRemoveStudentSelect();
         }
@@ -1066,6 +1080,48 @@
                 notification.classList.remove('show');
             }, 3000);
         }
+        
+        // --- 新增函式：自動清除舊的點名記錄 ---
+        async function cleanupOldAttendance() {
+            console.log('正在檢查並清除舊的點名記錄...');
+            const twoDaysAgo = new Date();
+            twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+            const twoDaysAgoStr = twoDaysAgo.toISOString().split('T')[0];
+
+            if (isOnline && db) {
+                try {
+                    const attendanceCollection = collection(db, 'attendance-system');
+                    const querySnapshot = await getDocs(attendanceCollection);
+                    const batch = writeBatch(db);
+                    let deletedCount = 0;
+                    
+                    querySnapshot.forEach((docSnap) => {
+                        // 排除學生名單 document
+                        if (docSnap.id !== 'students') {
+                            const docDate = docSnap.id;
+                            if (docDate < twoDaysAgoStr) {
+                                const docRef = doc(db, 'attendance-system', docDate);
+                                batch.delete(docRef);
+                                deletedCount++;
+                                console.log(`Firebase：準備刪除過期記錄 ${docDate}`);
+                            }
+                        }
+                    });
+                    
+                    if (deletedCount > 0) {
+                        await batch.commit();
+                        showNotification(`已自動清除 ${deletedCount} 筆過期點名記錄`, 'success');
+                    }
+                } catch (error) {
+                    console.error('清除舊記錄時發生錯誤:', error);
+                    showNotification('清除舊記錄失敗', 'error');
+                }
+            } else {
+                // 離線模式的清理邏輯已在 loadOfflineData 函式中處理
+                console.log('離線模式，記錄清理已在載入時完成');
+            }
+        }
+        // --- 結束新增 ---
 
         // --- 事件監聽器 ---
         document.addEventListener('keypress', (e) => {
@@ -1096,11 +1152,15 @@
             try {
                 const firebaseReady = await initFirebase();
                 
-                if (!firebaseReady) {
+                if (firebaseReady) {
+                    // --- 在連接成功後，執行清理舊記錄的動作 ---
+                    await cleanupOldAttendance();
+                    // --- 結束新增 ---
+                } else {
                     console.log('Firebase 連接失敗，載入離線資料');
                     loadOfflineData();
-                    renderAll();
                 }
+                renderAll();
             } catch (error) {
                 console.error('初始化錯誤:', error);
                 updateConnectionStatus('disconnected');

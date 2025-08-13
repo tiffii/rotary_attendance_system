@@ -981,9 +981,9 @@
             grid.innerHTML = students.map(student => {
                 const status = attendance[student] || 'not-marked';
                 const statusText = {
-                    'present': '出席',
+                    'present': '✅ 出席',
                     'on-leave': '請假',
-                    'not-marked': '未點名'
+                    'not-marked': '❌ 未點名'
                 };
                 
                 return `

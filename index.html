@@ -4,21 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>扶少點名系統</title>
-    <!-- 引入 Google Fonts - Noto Sans TC (圓體) -->
+    <!-- 引入 Google Fonts - Noto Sans TC -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700&display=swap" rel="stylesheet">
+    <!-- 引入 Phosphor Icons -->
+    <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.0.3/src/css/icons.css">
     <style>
-        /* 引入 Phosphor Icons */
-        @import url('https://unpkg.com/phosphor-icons@1.4.2/src/css/icons.css');
-        
         /* 使用者提供的顏色板 */
         :root {
-            --color-green: #4CAF50; 
-            --color-yellow: #D9AC5A;
-            --color-blue: #5F8FA7;
-            --color-orange: #E26448;
-            --color-cream: #F2EFE7;
+            --color-green: #4CAF50; /* 原始成功綠 */
+            --color-yellow: #D9AC5A; /* 請假黃 */
+            --color-blue: #5F8FA7; /* 點名結果藍 */
+            --color-orange: #E26448; /* 缺席/危險橘 */
+            --color-cream: #F2EFE7; /* 背景奶油色 */
         }
 
         * {
@@ -37,20 +36,27 @@
         .container {
             max-width: 1200px;
             margin: 0 auto;
-            background: rgba(255, 255, 255, 0.7); /* 半透明白色背景 */
-            backdrop-filter: blur(5px); /* 模糊效果 */
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(5px);
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.1);
             overflow: hidden;
         }
 
         .header {
-            /* 根據使用者要求，將標題背景改為新的綠色 */
             background: linear-gradient(45deg, #83aa87, #729175);
             color: white;
             padding: 30px;
             text-align: center;
             position: relative;
+        }
+        
+        .footer {
+            padding: 10px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #888;
+            background: rgba(255, 255, 255, 0.5);
         }
 
         .header-main-row {
@@ -106,6 +112,10 @@
             margin-top: 20px;
             flex-wrap: wrap;
         }
+        
+        .header-actions .btn {
+            font-size: 1.2em; /* 增加標題按鈕字體大小 */
+        }
 
         .content {
             padding: 30px;
@@ -151,7 +161,6 @@
             box-shadow: 0 15px 30px rgba(0,0,0,0.2);
         }
 
-        /* 已點名狀態恢復成原來的綠色 */
         .student-card.present {
             background: linear-gradient(145deg, #e3f2e4, #d3e9d5);
             border-color: var(--color-green);
@@ -164,7 +173,6 @@
             color: var(--color-orange);
         }
 
-        /* 請假狀態為黃色 */
         .student-card.on-leave {
             background: linear-gradient(145deg, #fefce7, #fdf8c9);
             border-color: var(--color-yellow);
@@ -172,7 +180,7 @@
         }
 
         .student-name {
-            font-size: 1.2em;
+            font-size: 1.5em; /* 增加學生姓名字體大小 */
             font-weight: bold;
             margin-bottom: 10px;
         }
@@ -211,13 +219,6 @@
             margin-top: 5px;
         }
 
-        .management {
-            background: #f8f9fa;
-            padding: 25px;
-            border-radius: 15px;
-            margin-bottom: 20px;
-        }
-
         .input-group {
             display: flex;
             gap: 10px;
@@ -237,7 +238,6 @@
 
         input[type="text"]:focus, select:focus, textarea:focus {
             outline: none;
-            /* 恢復成原來的綠色 */
             border-color: var(--color-green);
         }
         
@@ -251,22 +251,25 @@
             height: 100%;
             background-color: rgba(0,0,0,0.5);
             backdrop-filter: blur(5px);
+            align-items: center;
+            justify-content: center;
         }
 
         .modal-content {
-            background-color: rgba(255, 255, 255, 0.9); /* 半透明白色背景 */
-            margin: 5% auto;
+            background-color: rgba(255, 255, 255, 0.95);
             padding: 30px;
             border-radius: 20px;
             width: 90%;
             max-width: 600px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.3);
             animation: slideDown 0.3s ease;
+            max-height: 90vh;
+            overflow-y: auto;
         }
 
         @keyframes slideDown {
-            from { transform: translateY(-50px); opacity: 0; }
-            to { transform: translateY(0); opacity: 1; }
+            from { transform: translateY(-50px) scale(0.95); opacity: 0; }
+            to { transform: translateY(0) scale(1); opacity: 1; }
         }
 
         .close {
@@ -290,15 +293,14 @@
             color: white;
             font-weight: bold;
             z-index: 2000;
-            transform: translateX(400px);
-            transition: transform 0.3s ease;
+            transform: translateX(120%);
+            transition: transform 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         }
 
         .notification.show {
             transform: translateX(0);
         }
 
-        /* 成功通知恢復成原來的綠色 */
         .notification.success {
             background: linear-gradient(45deg, var(--color-green), #45a049);
         }
@@ -310,19 +312,12 @@
         h3 {
             margin-top: 20px;
             margin-bottom: 10px;
-            /* 恢復成原來的綠色 */
             color: var(--color-green);
-        }
-        
-        .divider {
-            height: 1px;
-            background-color: #ddd;
-            margin: 30px 0;
         }
         
         .settings-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: 15px;
         }
         
@@ -335,9 +330,9 @@
             cursor: pointer;
             transition: all 0.3s ease;
             box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            white-space: nowrap;
         }
 
-        /* 主要按鈕（如新增學生、學生管理）恢復成原來的綠色 */
         .btn-primary {
             background: linear-gradient(45deg, var(--color-green), #45a049);
             color: white;
@@ -348,7 +343,6 @@
             color: white;
         }
 
-        /* 點名結果按鈕維持藍色 */
         .btn-purple {
             background: linear-gradient(45deg, var(--color-blue), #4c7b8c);
             color: white;
@@ -364,20 +358,26 @@
             box-shadow: 0 6px 20px rgba(0,0,0,0.3);
         }
 
+        .results-list {
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+            word-break: break-word;
+        }
+
+        .results-list-present { background: rgba(76, 175, 80, 0.1); color: var(--color-green); }
+        .results-list-absent { background: rgba(226, 100, 72, 0.1); color: var(--color-orange); }
+        .results-list-on-leave { background: rgba(217, 172, 90, 0.1); color: var(--color-yellow); }
 
         @media (max-width: 768px) {
-            .header h1 {
-                font-size: 2em;
-            }
-            
-            .student-grid {
-                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-                gap: 15px;
-            }
-            
-            .input-group {
-                flex-direction: column;
-            }
+            body { padding: 10px; }
+            .header h1 { font-size: 2em; }
+            .student-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+            .input-group { flex-direction: column; }
+            .header .btn-settings { position: static; margin-top: 10px; width: 40px; height: 40px; font-size: 1.2em; }
+            .header-main-row { flex-direction: column; }
+            .header-actions { flex-direction: column; }
+            .modal-content { width: 95%; padding: 20px; }
         }
     </style>
 </head>
@@ -385,39 +385,38 @@
     <div class="container">
         <div class="header">
             <div class="header-main-row">
-                <h1>📚 扶少點名系統</h1>
+                <h1>扶少點名系統</h1>
                 <div class="week-info">
                     <span id="currentDate"></span>
                 </div>
             </div>
             
             <div class="header-actions">
-                <!-- 請假按鈕為黃色 -->
-                <button class="btn btn-warning" id="leaveModeBtn" onclick="markLeaveMode()">標記請假</button>
-                <!-- 點名結果按鈕維持藍色 -->
+                <button class="btn btn-warning" id="leaveModeBtn" onclick="toggleLeaveMode()">標記請假</button>
                 <button class="btn btn-purple" onclick="showResults()">點名結果</button>
             </div>
             
-            <button class="btn-settings" onclick="showModal('settingsModal')">
-                <i class="ph ph-gear-six"></i>
-            </button>
+            <button class="btn-settings" onclick="showModal('settingsModal')">⚙️</button>
         </div>
         
         <div class="content">
             <div class="student-grid" id="studentGrid">
                 <!-- 學生卡片會在這裡動態生成 -->
+                <p>正在連接資料庫並載入學生名單...</p>
             </div>
+        </div>
+        <div class="footer">
+            <span id="userIdDisplay"></span>
         </div>
     </div>
 
-    <!-- 設定模態框 (現在只包含學生管理和重置) -->
+    <!-- 設定模態框 -->
     <div id="settingsModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('settingsModal')">&times;</span>
-            <h2><i class="ph ph-gear-six"></i> 設定</h2>
+            <h2><i class="ph-fill ph-gear-six"></i> 設定</h2>
             <div class="settings-grid">
-                <!-- 學生管理按鈕恢復成原來的綠色 -->
-                <button class="btn btn-primary" onclick="showManagement(); closeModal('settingsModal');">學生管理</button>
+                <button class="btn btn-primary" onclick="showManagementModal()">學生管理</button>
                 <button class="btn btn-danger" onclick="resetAttendance()">重置當日點名</button>
             </div>
         </div>
@@ -427,25 +426,22 @@
     <div id="managementModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('managementModal')">&times;</span>
-            <h2><i class="ph ph-users"></i> 學生管理</h2>
+            <h2><i class="ph-fill ph-users"></i> 學生管理</h2>
             
-            <p style="color: #666; margin-bottom: 15px;">新增、移除或批量新增學生。</p>
+            <p style="color: #666; margin-bottom: 15px;">新增、移除或批量新增學生。所有更動將即時同步給團隊成員。</p>
             
             <div class="input-group">
                 <input type="text" id="newStudentName" placeholder="輸入學生姓名">
-                <!-- 新增按鈕恢復成原來的綠色 -->
                 <button class="btn btn-primary" onclick="addStudent()">新增</button>
             </div>
             
             <h4 style="margin-top: 20px;">批量新增（每行一個姓名）</h4>
-            <textarea id="bulkStudents" placeholder="張小明&#10;李小華&#10;王小美" 
-                      style="width: 100%; height: 120px; padding: 10px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 10px;"></textarea>
-            <!-- 批量新增按鈕恢復成原來的綠色 -->
+            <textarea id="bulkStudents" placeholder="張小明&#10;李小華&#10;王小美" style="width: 100%; height: 120px; padding: 10px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 10px;"></textarea>
             <button class="btn btn-primary" onclick="addBulkStudents()">批量新增</button>
             
             <h4 style="margin-top: 20px;">移除學生</h4>
             <div class="input-group">
-                <select id="removeStudentSelect" style="width: 70%; padding: 10px;">
+                <select id="removeStudentSelect" style="flex: 1; min-width: 200px;">
                     <option value="">選擇要移除的學生</option>
                 </select>
                 <button class="btn btn-danger" onclick="removeStudent()">移除</button>
@@ -467,190 +463,276 @@
     <!-- 通知訊息 -->
     <div id="notification" class="notification"></div>
 
-    <script>
-        // 全域變數
-        let students = JSON.parse(localStorage.getItem('students') || '[]');
-        let attendance = JSON.parse(localStorage.getItem('attendance') || '{}');
-        let leaveMode = false;
-        
-        let currentDateKey = new Date().toLocaleDateString('zh-TW');
+    <!-- Firebase SDK -->
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // 初始化系統
-        function init() {
-            // 如果沒有學生，顯示預設學生
-            if (students.length === 0) {
-                students = ['張小明', '李小華', '王小美', '陳小強', '林小芳'];
-                saveStudents();
+        // --- 全域變數 ---
+        let students = [];
+        let attendance = {};
+        let leaveMode = false;
+        const currentDateKey = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+        // Firebase 相關變數
+        let db, auth;
+        let userId;
+        let studentsDocRef, attendanceDocRef;
+        let studentsUnsubscribe, attendanceUnsubscribe;
+
+        // --- Firebase 設定 ---
+        // These global variables are provided by the environment.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'roll-call-app-default';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+
+        // --- 初始化 ---
+        document.addEventListener('DOMContentLoaded', async () => {
+            updateDateInfo();
+
+            try {
+                // Initialize Firebase
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Set up document references
+                studentsDocRef = doc(db, `artifacts/${appId}/public/data/students`, "studentList");
+                attendanceDocRef = doc(db, `artifacts/${appId}/public/data/attendance`, currentDateKey);
+
+                // Listen for authentication state changes
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        document.getElementById('userIdDisplay').textContent = `使用者ID: ${userId}`;
+                        console.log("Authenticated with user ID:", userId);
+                        // Once authenticated, start listening to data
+                        initDataListeners();
+                    } else {
+                        console.log("User is not signed in.");
+                        // Handle sign-in if no user
+                        await authenticate();
+                    }
+                });
+
+                // Initial authentication attempt
+                await authenticate();
+
+            } catch (error) {
+                console.error("Firebase Initialization Error:", error);
+                showNotification("無法連接到資料庫，請檢查設定。", "error");
+                document.getElementById('studentGrid').innerHTML = '<p style="color: red;">資料庫連接失敗，請刷新頁面重試。</p>';
             }
             
-            checkDateReset();
-            updateDateInfo();
-            renderStudents();
-        }
-        
-        // 更新日期資訊顯示
-        function updateDateInfo() {
-            const now = new Date();
-            document.getElementById('currentDate').textContent = now.toLocaleDateString('zh-TW');
-        }
-        
-        // 檢查是否需要重置
-        function checkDateReset() {
-            const storedDateKey = localStorage.getItem('currentDateKey');
-            if (storedDateKey !== currentDateKey) {
-                // 新的一天，重置點名資料
-                attendance = {};
-                localStorage.setItem('currentDateKey', currentDateKey);
-                localStorage.setItem('attendance', JSON.stringify(attendance));
-                showNotification('新的一天開始，點名資料已重置！', 'success');
+            setupEventListeners();
+        });
+
+        async function authenticate() {
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.error("Authentication Error:", error);
+                showNotification("身份驗證失敗", "error");
             }
         }
 
-        // 渲染學生卡片
+        // --- 資料監聽 ---
+        function initDataListeners() {
+            // Stop any existing listeners before starting new ones
+            if (studentsUnsubscribe) studentsUnsubscribe();
+            if (attendanceUnsubscribe) attendanceUnsubscribe();
+
+            // Listener for the student list
+            studentsUnsubscribe = onSnapshot(studentsDocRef, async (docSnap) => {
+                if (docSnap.exists()) {
+                    students = docSnap.data().names || [];
+                } else {
+                    // If no student list exists, create a default one
+                    students = ['張小明', '李小華', '王小美', '陳小強', '林小芳'];
+                    await setDoc(studentsDocRef, { names: students });
+                    showNotification("已建立預設學生名單", "success");
+                }
+                renderAll();
+            }, (error) => {
+                console.error("Error listening to students:", error);
+                showNotification("讀取學生名單失敗", "error");
+            });
+
+            // Listener for today's attendance
+            attendanceUnsubscribe = onSnapshot(attendanceDocRef, async (docSnap) => {
+                if (docSnap.exists()) {
+                    attendance = docSnap.data().records || {};
+                } else {
+                    // If no attendance for today, create an empty record
+                    attendance = {};
+                    await setDoc(attendanceDocRef, { records: {} });
+                }
+                renderAll();
+            }, (error) => {
+                console.error("Error listening to attendance:", error);
+                showNotification("讀取點名資料失敗", "error");
+            });
+        }
+        
+        // --- 核心渲染函式 ---
+        function renderAll() {
+            renderStudents();
+            updateRemoveSelect();
+        }
+
         function renderStudents() {
             const grid = document.getElementById('studentGrid');
             grid.innerHTML = '';
 
+            if (students.length === 0) {
+                grid.innerHTML = '<p>目前沒有學生。請至「設定」>「學生管理」新增學生。</p>';
+                return;
+            }
+
             students.forEach(student => {
                 const status = attendance[student] || 'not-marked';
                 const card = document.createElement('div');
-                card.className = `student-card ${status === 'present' ? 'present' : status === 'on-leave' ? 'on-leave' : status === 'absent' ? 'absent' : ''}`;
-                card.onclick = () => toggleAttendance(student);
+                card.className = `student-card ${status}`;
+                card.onclick = () => window.toggleAttendance(student); // Make it globally accessible
                 
-                let statusText = '未點名';
-                if (status === 'present') statusText = '✅ 已點名';
-                else if (status === 'on-leave') statusText = '📝 請假';
-                else if (status === 'absent') statusText = '❌ 未點名';
-                else statusText = '❌ 未點名';
+                let statusText;
+                if (status === 'present') {
+                    statusText = '✅ 已點名';
+                } else if (status === 'on-leave') {
+                    statusText = '請假';
+                } else {
+                    statusText = '❌ 未點名';
+                }
 
                 card.innerHTML = `
                     <div class="student-name">${student}</div>
-                    <div class="student-status">${statusText}</div>
+                    <div class="student-status">
+                        ${statusText}
+                    </div>
                 `;
-                
                 grid.appendChild(card);
             });
         }
-
-        // 切換出席狀態
-        function toggleAttendance(studentName) {
+        
+        // --- 事件處理 & 邏輯 ---
+        window.toggleAttendance = async (studentName) => {
+            let newStatus;
             if (leaveMode) {
-                // 請假模式
-                if (attendance[studentName] === 'on-leave') {
-                    delete attendance[studentName];
-                    showNotification(`${studentName} 取消請假`, 'success');
-                } else {
-                    attendance[studentName] = 'on-leave';
-                    showNotification(`${studentName} 已標記請假`, 'success');
-                }
+                newStatus = attendance[studentName] === 'on-leave' ? null : 'on-leave';
             } else {
-                // 一般點名模式
                 if (attendance[studentName] === 'on-leave') {
                     showNotification(`${studentName} 已請假，無法點名`, 'error');
                     return;
                 }
-                
-                if (attendance[studentName] === 'present') {
-                    delete attendance[studentName];
-                    showNotification(`${studentName} 取消點名`, 'success');
-                } else {
-                    attendance[studentName] = 'present';
-                    showNotification(`${studentName} 點名成功！`, 'success');
-                }
+                newStatus = attendance[studentName] === 'present' ? null : 'present';
             }
-            
-            saveAttendance();
-            renderStudents();
-        }
-        
-        // 重置當日點名記錄
-        function resetAttendance() {
-            attendance = {};
-            saveAttendance();
-            renderStudents();
-            closeModal('settingsModal');
-            showNotification('當日點名記錄已重置', 'success');
-        }
 
-        // 新增學生
-        function addStudent() {
-            const name = document.getElementById('newStudentName').value.trim();
-            if (!name) {
-                showNotification('請輸入學生姓名', 'error');
-                return;
-            }
-            
-            if (students.includes(name)) {
-                showNotification('學生已存在', 'error');
-                return;
-            }
-            
-            students.push(name);
-            saveStudents();
-            renderStudents();
-            document.getElementById('newStudentName').value = '';
-            showNotification(`${name} 新增成功`, 'success');
-            updateRemoveSelect();
-        }
+            const fieldKey = `records.${studentName}`;
+            const updateData = {};
 
-        // 批量新增學生
-        function addBulkStudents() {
-            const bulkText = document.getElementById('bulkStudents').value.trim();
-            if (!bulkText) {
-                showNotification('請輸入學生姓名', 'error');
-                return;
-            }
-            
-            const names = bulkText.split('\n').map(name => name.trim()).filter(name => name);
-            let addedCount = 0;
-            
-            names.forEach(name => {
-                if (!students.includes(name)) {
-                    students.push(name);
-                    addedCount++;
-                }
-            });
-            
-            if (addedCount > 0) {
-                saveStudents();
-                renderStudents();
-                document.getElementById('bulkStudents').value = '';
-                showNotification(`成功新增 ${addedCount} 位學生`, 'success');
-                updateRemoveSelect();
+            if (newStatus) {
+                updateData[fieldKey] = newStatus;
+                 showNotification(`${studentName} 已標記為 ${newStatus === 'present' ? '已點名' : '請假'}`, 'success');
             } else {
-                showNotification('沒有新學生被新增（可能都已存在）', 'error');
+                // To remove a field from a map, we set it to a special value and handle it server-side,
+                // or more simply, we fetch, modify, and set. For simplicity here, we'll update the whole map.
+                const newAttendance = { ...attendance };
+                delete newAttendance[studentName];
+                await setDoc(attendanceDocRef, { records: newAttendance });
+                showNotification(`${studentName} 已取消標記`, 'success');
+                return; // Exit early as we used setDoc
             }
-        }
+            
+            try {
+                await updateDoc(attendanceDocRef, updateData);
+            } catch (error) {
+                console.error("Error updating attendance:", error);
+                showNotification("更新點名狀態失敗", "error");
+            }
+        };
 
-        // 移除學生
-        function removeStudent() {
+        window.resetAttendance = async () => {
+            if (confirm("確定要重置今天所有的點名記錄嗎？此操作無法復原。")) {
+                try {
+                    await setDoc(attendanceDocRef, { records: {} });
+                    closeModal('settingsModal');
+                    showNotification('當日點名記錄已重置', 'success');
+                } catch (error) {
+                    console.error("Error resetting attendance:", error);
+                    showNotification("重置失敗", "error");
+                }
+            }
+        };
+
+        window.addStudent = async () => {
+            const name = document.getElementById('newStudentName').value.trim();
+            if (!name) return showNotification('請輸入學生姓名', 'error');
+            if (students.includes(name)) return showNotification('學生已存在', 'error');
+            
+            try {
+                await updateDoc(studentsDocRef, { names: arrayUnion(name) });
+                document.getElementById('newStudentName').value = '';
+                showNotification(`${name} 新增成功`, 'success');
+            } catch (error) {
+                console.error("Error adding student:", error);
+                showNotification("新增學生失敗", "error");
+            }
+        };
+
+        window.addBulkStudents = async () => {
+            const bulkText = document.getElementById('bulkStudents').value.trim();
+            if (!bulkText) return showNotification('請輸入學生姓名', 'error');
+            
+            const names = bulkText.split('\n').map(name => name.trim()).filter(name => name && !students.includes(name));
+            if (names.length === 0) return showNotification('沒有新學生被新增（可能都已存在）', 'error');
+
+            try {
+                await updateDoc(studentsDocRef, { names: arrayUnion(...names) });
+                document.getElementById('bulkStudents').value = '';
+                showNotification(`成功新增 ${names.length} 位學生`, 'success');
+            } catch (error) {
+                console.error("Error bulk adding students:", error);
+                showNotification("批量新增失敗", "error");
+            }
+        };
+
+        window.removeStudent = async () => {
             const select = document.getElementById('removeStudentSelect');
             const name = select.value;
-            
-            if (!name) {
-                showNotification('請選擇要移除的學生', 'error');
-                return;
-            }
-            
-            const index = students.indexOf(name);
-            if (index > -1) {
-                students.splice(index, 1);
-                delete attendance[name]; // 同時移除出席記錄
-                saveStudents();
-                saveAttendance();
-                renderStudents();
-                select.value = '';
-                showNotification(`${name} 已移除`, 'success');
-                updateRemoveSelect();
-            }
-        }
+            if (!name) return showNotification('請選擇要移除的學生', 'error');
 
-        // 更新移除選單
+            if (confirm(`確定要移除學生 "${name}" 嗎？此操作會將其從名單和今日點名記錄中刪除。`)) {
+                try {
+                    const batch = writeBatch(db);
+                    // Remove from student list
+                    batch.update(studentsDocRef, { names: arrayRemove(name) });
+                    // Remove from today's attendance
+                    const attendanceUpdate = {};
+                    attendanceUpdate[`records.${name}`] = null; // This requires server-side handling to delete, simpler to just set the whole object.
+                    const newAttendance = { ...attendance };
+                    delete newAttendance[name];
+                    batch.set(attendanceDocRef, {records: newAttendance});
+
+                    await batch.commit();
+                    
+                    select.value = '';
+                    showNotification(`${name} 已移除`, 'success');
+                } catch (error) {
+                    console.error("Error removing student:", error);
+                    showNotification("移除學生失敗", "error");
+                }
+            }
+        };
+
         function updateRemoveSelect() {
             const select = document.getElementById('removeStudentSelect');
             select.innerHTML = '<option value="">選擇要移除的學生</option>';
-            
-            students.forEach(student => {
+            students.sort((a, b) => a.localeCompare(b, 'zh-Hant')).forEach(student => {
                 const option = document.createElement('option');
                 option.value = student;
                 option.textContent = student;
@@ -658,154 +740,88 @@
             });
         }
 
-        // 請假模式切換
-        function markLeaveMode() {
+        window.toggleLeaveMode = () => {
             leaveMode = !leaveMode;
             const btn = document.getElementById('leaveModeBtn');
-            
             if (leaveMode) {
                 btn.textContent = '請假模式 (點擊退出)';
-                btn.style.background = 'linear-gradient(45deg, var(--color-yellow), #c09a47)';
-                showNotification('進入請假模式，點擊學生名字標記請假', 'success');
+                btn.style.background = 'linear-gradient(45deg, #c09a47, var(--color-yellow))';
+                showNotification('進入請假模式，點擊學生標記請假', 'success');
             } else {
                 btn.textContent = '標記請假';
                 btn.style.background = 'linear-gradient(45deg, var(--color-yellow), #c09a47)';
                 showNotification('退出請假模式', 'success');
             }
-        }
+        };
 
-        // 顯示點名結果
-        function showResults() {
-            const presentList = [];
-            const absentList = [];
-            const leaveList = [];
-            
+        window.showResults = () => {
+            const presentList = [], absentList = [], leaveList = [];
             students.forEach(student => {
                 const status = attendance[student];
-                if (status === 'present') {
-                    presentList.push(student);
-                } else if (status === 'on-leave') {
-                    leaveList.push(student);
-                } else {
-                    absentList.push(student);
-                }
+                if (status === 'present') presentList.push(student);
+                else if (status === 'on-leave') leaveList.push(student);
+                else absentList.push(student);
             });
             
             const totalStudents = students.length;
-            const totalPresent = presentList.length;
-            const totalAbsent = absentList.length;
-            const totalLeave = leaveList.length;
-
-            let html = `
+            const html = `
                 <div class="stats">
-                    <div class="stat-card">
-                        <div class="stat-number">${totalStudents}</div>
-                        <div class="stat-label">總人數</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">${totalPresent}</div>
-                        <div class="stat-label">已點名</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">${totalAbsent}</div>
-                        <div class="stat-label">未點名</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number">${totalLeave}</div>
-                        <div class="stat-label">請假</div>
-                    </div>
+                    <div class="stat-card"><div class="stat-number">${totalStudents}</div><div class="stat-label">總人數</div></div>
+                    <div class="stat-card"><div class="stat-number">${presentList.length}</div><div class="stat-label">已點名</div></div>
+                    <div class="stat-card"><div class="stat-number">${absentList.length}</div><div class="stat-label">未點名</div></div>
+                    <div class="stat-card"><div class="stat-number">${leaveList.length}</div><div class="stat-label">請假</div></div>
                 </div>
+                ${presentList.length > 0 ? `<h3><i class="ph-fill ph-check-circle"></i> 已點名學生 (${presentList.length}人)</h3><p class="results-list results-list-present">${presentList.join('、')}</p>` : ''}
+                ${absentList.length > 0 ? `<h3><i class="ph-fill ph-x-circle"></i> 未點名學生 (${absentList.length}人)</h3><p class="results-list results-list-absent"><strong>${absentList.join('、')}</strong></p>` : ''}
+                ${leaveList.length > 0 ? `<h3><i class="ph-fill ph-note-pencil"></i> 請假學生 (${leaveList.length}人)</h3><p class="results-list results-list-on-leave">${leaveList.join('、')}</p>` : ''}
             `;
-            
-            if (presentList.length > 0) {
-                html += `<h3><i class="ph ph-check-circle"></i> 已點名學生 (${presentList.length}人)</h3>`;
-                // 點名結果列表恢復成原來的綠色
-                html += `<p style="background: rgba(76, 175, 80, 0.1); padding: 15px; border-radius: 8px; margin: 10px 0; color: var(--color-green);">${presentList.join('、')}</p>`;
-            }
-            
-            if (absentList.length > 0) {
-                html += `<h3><i class="ph ph-x-circle"></i> 未點名學生 (${absentList.length}人)</h3>`;
-                html += `<p style="background: rgba(var(--color-orange), 0.1); padding: 15px; border-radius: 8px; margin: 10px 0; color: var(--color-orange);"><strong>${absentList.join('、')}</strong></p>`;
-            }
-            
-            if (leaveList.length > 0) {
-                html += `<h3><i class="ph ph-note-pencil"></i> 請假學生 (${leaveList.length}人)</h3>`;
-                // 請假結果列表維持黃色
-                html += `<p style="background: rgba(217, 172, 90, 0.1); padding: 15px; border-radius: 8px; margin: 10px 0; color: var(--color-yellow);">${leaveList.join('、')}</p>`;
-            }
-            
             document.getElementById('resultsContent').innerHTML = html;
-            document.getElementById('resultsModal').style.display = 'block';
+            showModal('resultsModal');
+        };
+
+        // --- UI Helper Functions ---
+        function updateDateInfo() {
+            const now = new Date();
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('zh-TW', options);
         }
+
+        window.showModal = (modalId) => {
+            const modal = document.getElementById(modalId);
+            if(modal) modal.style.display = 'flex';
+        };
         
-        // 顯示模態框
-        function showModal(modalId) {
-            document.getElementById(modalId).style.display = 'block';
-            if (modalId === 'managementModal') {
-                updateRemoveSelect();
-            }
-        }
-        
-        // 顯示學生管理模態框
-        function showManagement() {
+        window.showManagementModal = () => {
+            closeModal('settingsModal');
             showModal('managementModal');
         }
 
-        // 關閉模態框
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-            // 當關閉任何模態框時，重置請假模式按鈕的狀態
-            leaveMode = false; 
-            const leaveBtn = document.getElementById('leaveModeBtn');
-            if (leaveBtn) {
-                leaveBtn.textContent = '標記請假';
-                leaveBtn.style.background = 'linear-gradient(45deg, var(--color-yellow), #c09a47)';
-            }
-        }
+        window.closeModal = (modalId) => {
+            const modal = document.getElementById(modalId);
+            if(modal) modal.style.display = 'none';
+        };
 
-        // 儲存學生列表
-        function saveStudents() {
-            localStorage.setItem('students', JSON.stringify(students));
-        }
-
-        // 儲存出席記錄
-        function saveAttendance() {
-            localStorage.setItem('attendance', JSON.stringify(attendance));
-        }
-
-        // 顯示通知
         function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
             notification.textContent = message;
             notification.className = `notification ${type}`;
             notification.classList.add('show');
-            
-            setTimeout(() => {
-                notification.classList.remove('show');
-            }, 3000);
+            setTimeout(() => notification.classList.remove('show'), 3000);
         }
-
-        // 點擊模態框外部關閉
-        window.onclick = function(event) {
-            const modals = document.getElementsByClassName('modal');
-            for (let modal of modals) {
-                if (event.target === modal) {
-                    closeModal(modal.id);
+        
+        function setupEventListeners() {
+            // Close modals on outside click
+            window.onclick = (event) => {
+                if (event.target.classList.contains('modal')) {
+                    closeModal(event.target.id);
                 }
-            }
-        }
-
-        // Enter 鍵支援
-        document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('newStudentName').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    addStudent();
-                }
+            };
+            // Enter key for adding student
+            document.getElementById('newStudentName').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') addStudent();
             });
-        });
-
-        // 初始化系統
-        init();
+        }
     </script>
 </body>
 </html>
+

@@ -123,9 +123,10 @@
 
         .student-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fill, 200px);
             gap: 20px;
             margin-top: 20px;
+            justify-content: center;
         }
 
         .student-card {
@@ -139,6 +140,12 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.1);
             position: relative;
             overflow: hidden;
+            width: 200px;
+            height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
 
         .student-card::before {
@@ -369,22 +376,31 @@
         .results-list-absent { background: rgba(226, 100, 72, 0.1); color: var(--color-orange); }
         .results-list-on-leave { background: rgba(217, 172, 90, 0.1); color: var(--color-yellow); }
 
-        .confirm-buttons {
-            display: flex;
-            justify-content: flex-end;
-            gap: 10px;
+        .data-management {
             margin-top: 20px;
+            padding: 15px;
+            background: rgba(95, 143, 167, 0.1);
+            border-radius: 10px;
+            border-left: 4px solid var(--color-blue);
         }
-        
+
+        .export-import-section {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
         @media (max-width: 768px) {
             body { padding: 10px; }
             .header h1 { font-size: 2em; }
-            .student-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 15px; }
+            .student-grid { grid-template-columns: repeat(auto-fill, 200px); gap: 15px; }
             .input-group { flex-direction: column; }
             .header .btn-settings { position: static; margin-top: 10px; width: 40px; height: 40px; font-size: 1.2em; }
             .header-main-row { flex-direction: column; }
             .header-actions { flex-direction: column; }
             .modal-content { width: 95%; padding: 20px; }
+            .export-import-section { flex-direction: column; }
         }
     </style>
 </head>
@@ -409,11 +425,10 @@
         <div class="content">
             <div class="student-grid" id="studentGrid">
                 <!-- 學生卡片會在這裡動態生成 -->
-                <p>正在連接資料庫並載入學生名單...</p>
             </div>
         </div>
         <div class="footer">
-            <span id="userIdDisplay"></span>
+            資料自動儲存 | 最後更新：<span id="lastSaved"></span>
         </div>
     </div>
 
@@ -424,7 +439,22 @@
             <h2><i class="ph-fill ph-gear-six"></i> 設定</h2>
             <div class="settings-grid">
                 <button class="btn btn-primary" onclick="showManagementModal()">學生管理</button>
-                <button class="btn btn-danger" onclick="showConfirmReset()">重置當日點名</button>
+                <button class="btn btn-danger" onclick="resetAttendance()">重置當日點名</button>
+            </div>
+            
+            <div class="data-management">
+                <h4><i class="ph-fill ph-database"></i> 資料管理</h4>
+                <p style="color: #666; font-size: 0.9em; margin: 10px 0;">
+                    所有資料都儲存在瀏覽器中，團隊成員可通過匯出/匯入功能同步資料
+                </p>
+                <div class="export-import-section">
+                    <button class="btn btn-purple" onclick="exportData()">匯出資料</button>
+                    <label for="importFile" class="btn btn-purple" style="cursor: pointer;">
+                        匯入資料
+                        <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData()">
+                    </label>
+                    <button class="btn btn-danger" onclick="clearAllData()">清除所有資料</button>
+                </div>
             </div>
         </div>
     </div>
@@ -435,7 +465,7 @@
             <span class="close" onclick="closeModal('managementModal')">&times;</span>
             <h2><i class="ph-fill ph-users"></i> 學生管理</h2>
             
-            <p style="color: #666; margin-bottom: 15px;">新增、移除或批量新增學生。所有更動將即時同步給團隊成員。</p>
+            <p style="color: #666; margin-bottom: 15px;">新增、移除或批量新增學生。所有更動將自動儲存。</p>
             
             <div class="input-group">
                 <input type="text" id="newStudentName" placeholder="輸入學生姓名">
@@ -451,7 +481,7 @@
                 <select id="removeStudentSelect" style="flex: 1; min-width: 200px;">
                     <option value="">選擇要移除的學生</option>
                 </select>
-                <button class="btn btn-danger" onclick="showConfirmRemove()">移除</button>
+                <button class="btn btn-danger" onclick="removeStudent()">移除</button>
             </div>
         </div>
     </div>
@@ -466,127 +496,119 @@
             </div>
         </div>
     </div>
-    
-    <!-- 自訂確認模態框 -->
-    <div id="customConfirmModal" class="modal">
-        <div class="modal-content">
-            <p id="confirmMessage" style="font-size: 1.2em; text-align: center; margin-bottom: 20px;">確定要執行此操作嗎？</p>
-            <div class="confirm-buttons">
-                <button class="btn btn-danger" id="confirmActionBtn">確定</button>
-                <button class="btn" onclick="closeModal('customConfirmModal')">取消</button>
-            </div>
-        </div>
-    </div>
 
     <!-- 通知訊息 -->
     <div id="notification" class="notification"></div>
 
-    <!-- Firebase SDK -->
-    <script type="module">
-        // Import Firebase modules
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // --- Global variables ---
+    <script>
+        // --- 全域變數 ---
         let students = [];
-        let attendance = {};
+        let attendanceHistory = {};
         let leaveMode = false;
         const currentDateKey = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
-        // Firebase related variables
-        let db, auth;
-        let userId;
-        let studentsDocRef, attendanceDocRef;
-        let studentsUnsubscribe, attendanceUnsubscribe;
+        // 儲存鍵名
+        const STORAGE_KEYS = {
+            STUDENTS: 'attendanceSystem_students',
+            ATTENDANCE: 'attendanceSystem_attendance',
+            SETTINGS: 'attendanceSystem_settings'
+        };
 
-        // --- Firebase Configuration ---
-        // 使用預設的 Firebase 配置，以確保具有正確的 Firestore 權限。
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-        // --- Initialization ---
-        document.addEventListener('DOMContentLoaded', async () => {
-            updateDateInfo();
-
+        // --- 資料持久化函式 ---
+        function saveData() {
             try {
-                // Initialize Firebase app and services
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
+                // 儲存學生名單
+                localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
                 
-                // 使用提供的自定義令牌登入，以獲得必要的權限
-                if (typeof __initial_auth_token !== 'undefined') {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // 儲存出勤記錄
+                localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attendanceHistory));
                 
-                // Set up document references
-                studentsDocRef = doc(db, `artifacts/${appId}/public/data/students`, "studentList");
-                attendanceDocRef = doc(db, `artifacts/${appId}/public/data/attendance`, currentDateKey);
-
-                // Listen for authentication state changes and set up data listeners
-                onAuthStateChanged(auth, async (user) => {
-                    if (user) {
-                        userId = user.uid;
-                        document.getElementById('userIdDisplay').textContent = `使用者ID: ${userId}`;
-                        console.log("Authenticated with user ID:", userId);
-                        initDataListeners();
-                    } else {
-                        console.log("User is not signed in.");
-                        document.getElementById('studentGrid').innerHTML = '<p style="color: red;">身份驗證失敗，請檢查您的 Firebase 配置。</p>';
-                    }
-                });
-
+                // 更新最後儲存時間
+                const now = new Date().toLocaleString('zh-TW');
+                localStorage.setItem('lastSaved', now);
+                document.getElementById('lastSaved').textContent = now;
+                
+                console.log('資料已儲存');
             } catch (error) {
-                console.error("Firebase Initialization Error:", error);
-                showNotification("無法連接到資料庫，請檢查您的 Firebase 配置。", "error");
-                document.getElementById('studentGrid').innerHTML = '<p style="color: red;">資料庫連接失敗，請檢查您的 Firebase 配置並刷新頁面。</p>';
+                console.error('儲存資料失敗:', error);
+                showNotification('儲存資料失敗', 'error');
+            }
+        }
+
+        function loadData() {
+            try {
+                // 載入學生名單
+                const savedStudents = localStorage.getItem(STORAGE_KEYS.STUDENTS);
+                if (savedStudents) {
+                    students = JSON.parse(savedStudents);
+                } else {
+                    // 空的學生名單，不使用預設名單
+                    students = [];
+                    saveData();
+                }
+
+                // 載入出勤記錄
+                const savedAttendance = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
+                if (savedAttendance) {
+                    attendanceHistory = JSON.parse(savedAttendance);
+                } else {
+                    attendanceHistory = {};
+                }
+
+                // 確保今日有出勤記錄項目
+                if (!attendanceHistory[currentDateKey]) {
+                    attendanceHistory[currentDateKey] = {};
+                }
+
+                // 更新最後儲存時間顯示
+                const lastSaved = localStorage.getItem('lastSaved');
+                if (lastSaved) {
+                    document.getElementById('lastSaved').textContent = lastSaved;
+                } else {
+                    document.getElementById('lastSaved').textContent = '首次使用';
+                }
+
+                console.log('資料已載入');
+            } catch (error) {
+                console.error('載入資料失敗:', error);
+                showNotification('載入資料失敗', 'error');
+                // 使用空的學生名單
+                students = [];
+                attendanceHistory = {};
+                attendanceHistory[currentDateKey] = {};
+            }
+        }
+
+        function getCurrentAttendance() {
+            return attendanceHistory[currentDateKey] || {};
+        }
+
+        function setCurrentAttendance(studentName, status) {
+            if (!attendanceHistory[currentDateKey]) {
+                attendanceHistory[currentDateKey] = {};
             }
             
+            if (status === null) {
+                delete attendanceHistory[currentDateKey][studentName];
+            } else {
+                attendanceHistory[currentDateKey][studentName] = status;
+            }
+            
+            saveData();
+        }
+
+        // --- 初始化 ---
+        document.addEventListener('DOMContentLoaded', () => {
+            updateDateInfo();
+            loadData();
+            renderAll();
             setupEventListeners();
+            
+            // 每5分鐘自動儲存一次（備份）
+            setInterval(saveData, 5 * 60 * 1000);
         });
 
-        // --- Data Listeners ---
-        function initDataListeners() {
-            // Stop any existing listeners before starting new ones
-            if (studentsUnsubscribe) studentsUnsubscribe();
-            if (attendanceUnsubscribe) attendanceUnsubscribe();
-
-            // Listener for the student list
-            studentsUnsubscribe = onSnapshot(studentsDocRef, async (docSnap) => {
-                if (docSnap.exists()) {
-                    students = docSnap.data().names || [];
-                } else {
-                    // If no student list exists, create a default one
-                    students = ['張小明', '李小華', '王小美', '陳小強', '林小芳'];
-                    await setDoc(studentsDocRef, { names: students });
-                    showNotification("已建立預設學生名單", "success");
-                }
-                renderAll();
-            }, (error) => {
-                console.error("Error listening to students:", error);
-                showNotification("讀取學生名單失敗", "error");
-            });
-
-            // Listener for today's attendance
-            attendanceUnsubscribe = onSnapshot(attendanceDocRef, async (docSnap) => {
-                if (docSnap.exists()) {
-                    attendance = docSnap.data().records || {};
-                } else {
-                    // If no attendance for today, create an empty record
-                    attendance = {};
-                    await setDoc(attendanceDocRef, { records: {} });
-                }
-                renderAll();
-            }, (error) => {
-                console.error("Error listening to attendance:", error);
-                showNotification("讀取點名資料失敗", "error");
-            });
-        }
-        
-        // --- Core Rendering Functions ---
+        // --- 核心渲染函式 ---
         function renderAll() {
             renderStudents();
             updateRemoveSelect();
@@ -595,23 +617,25 @@
         function renderStudents() {
             const grid = document.getElementById('studentGrid');
             grid.innerHTML = '';
+            const attendance = getCurrentAttendance();
 
             if (students.length === 0) {
                 grid.innerHTML = '<p>目前沒有學生。請至「設定」>「學生管理」新增學生。</p>';
                 return;
             }
 
+            // 保持學生順序不變，按照原本的順序顯示
             students.forEach(student => {
                 const status = attendance[student] || 'not-marked';
                 const card = document.createElement('div');
                 card.className = `student-card ${status}`;
-                card.onclick = () => window.toggleAttendance(student); // Make it globally accessible
+                card.onclick = () => toggleAttendance(student);
                 
                 let statusText;
                 if (status === 'present') {
                     statusText = '✅ 已點名';
                 } else if (status === 'on-leave') {
-                    statusText = '請假';
+                    statusText = '📋 請假';
                 } else {
                     statusText = '❌ 未點名';
                 }
@@ -625,10 +649,12 @@
                 grid.appendChild(card);
             });
         }
-        
-        // --- Event Handlers & Logic ---
-        window.toggleAttendance = async (studentName) => {
+
+        // --- 事件處理 & 邏輯 ---
+        function toggleAttendance(studentName) {
+            const attendance = getCurrentAttendance();
             let newStatus;
+            
             if (leaveMode) {
                 newStatus = attendance[studentName] === 'on-leave' ? null : 'on-leave';
             } else {
@@ -639,110 +665,84 @@
                 newStatus = attendance[studentName] === 'present' ? null : 'present';
             }
 
-            const fieldKey = `records.${studentName}`;
-            const updateData = {};
-
+            setCurrentAttendance(studentName, newStatus);
+            
             if (newStatus) {
-                updateData[fieldKey] = newStatus;
-                 showNotification(`${studentName} 已標記為 ${newStatus === 'present' ? '已點名' : '請假'}`, 'success');
+                showNotification(`${studentName} 已標記為 ${newStatus === 'present' ? '已點名' : '請假'}`, 'success');
             } else {
-                // To remove a field from a map, we set it to a special value and handle it server-side,
-                // or more simply, we fetch, modify, and set. For simplicity here, we'll update the whole map.
-                const newAttendance = { ...attendance };
-                delete newAttendance[studentName];
-                await setDoc(attendanceDocRef, { records: newAttendance });
                 showNotification(`${studentName} 已取消標記`, 'success');
-                return; // Exit early as we used setDoc
             }
             
-            try {
-                await updateDoc(attendanceDocRef, updateData);
-            } catch (error) {
-                console.error("Error updating attendance:", error);
-                showNotification("更新點名狀態失敗", "error");
-            }
-        };
-        
-        window.showConfirmReset = () => {
-             showCustomConfirm('確定要重置今天所有的點名記錄嗎？此操作無法復原。', resetAttendance);
-        };
+            renderStudents();
+        }
 
-        window.resetAttendance = async () => {
-            try {
-                await setDoc(attendanceDocRef, { records: {} });
-                closeModal('customConfirmModal');
+        function resetAttendance() {
+            if (confirm("確定要重置今天所有的點名記錄嗎？此操作無法復原。")) {
+                attendanceHistory[currentDateKey] = {};
+                saveData();
+                renderStudents();
                 closeModal('settingsModal');
                 showNotification('當日點名記錄已重置', 'success');
-            } catch (error) {
-                console.error("Error resetting attendance:", error);
-                showNotification("重置失敗", "error");
             }
-        };
+        }
 
-        window.addStudent = async () => {
+        function addStudent() {
             const name = document.getElementById('newStudentName').value.trim();
             if (!name) return showNotification('請輸入學生姓名', 'error');
             if (students.includes(name)) return showNotification('學生已存在', 'error');
             
-            try {
-                await updateDoc(studentsDocRef, { names: arrayUnion(name) });
-                document.getElementById('newStudentName').value = '';
-                showNotification(`${name} 新增成功`, 'success');
-            } catch (error) {
-                console.error("Error adding student:", error);
-                showNotification("新增學生失敗", "error");
-            }
-        };
+            students.push(name);
+            saveData();
+            renderAll();
+            document.getElementById('newStudentName').value = '';
+            showNotification(`${name} 新增成功`, 'success');
+        }
 
-        window.addBulkStudents = async () => {
+        function addBulkStudents() {
             const bulkText = document.getElementById('bulkStudents').value.trim();
             if (!bulkText) return showNotification('請輸入學生姓名', 'error');
             
-            const names = bulkText.split('\n').map(name => name.trim()).filter(name => name && !students.includes(name));
+            const names = bulkText.split('\n')
+                .map(name => name.trim())
+                .filter(name => name && !students.includes(name));
+            
             if (names.length === 0) return showNotification('沒有新學生被新增（可能都已存在）', 'error');
 
-            try {
-                await updateDoc(studentsDocRef, { names: arrayUnion(...names) });
-                document.getElementById('bulkStudents').value = '';
-                showNotification(`成功新增 ${names.length} 位學生`, 'success');
-            } catch (error) {
-                console.error("Error bulk adding students:", error);
-                showNotification("批量新增失敗", "error");
-            }
-        };
-        
-        window.showConfirmRemove = () => {
+            students.push(...names);
+            saveData();
+            renderAll();
+            document.getElementById('bulkStudents').value = '';
+            showNotification(`成功新增 ${names.length} 位學生`, 'success');
+        }
+
+        function removeStudent() {
             const select = document.getElementById('removeStudentSelect');
             const name = select.value;
             if (!name) return showNotification('請選擇要移除的學生', 'error');
-            showCustomConfirm(`確定要移除學生 "${name}" 嗎？此操作會將其從名單和今日點名記錄中刪除。`, () => removeStudent(name));
-        };
 
-        window.removeStudent = async (name) => {
-            try {
-                const batch = writeBatch(db);
-                // Remove from student list
-                batch.update(studentsDocRef, { names: arrayRemove(name) });
-                // Remove from today's attendance
-                const newAttendance = { ...attendance };
-                delete newAttendance[name];
-                batch.set(attendanceDocRef, {records: newAttendance});
-
-                await batch.commit();
+            if (confirm(`確定要移除學生 "${name}" 嗎？此操作會將其從名單和所有點名記錄中刪除。`)) {
+                // 從學生名單中移除
+                students = students.filter(student => student !== name);
                 
-                document.getElementById('removeStudentSelect').value = '';
-                closeModal('customConfirmModal');
+                // 從所有出勤記錄中移除
+                Object.keys(attendanceHistory).forEach(date => {
+                    if (attendanceHistory[date][name]) {
+                        delete attendanceHistory[date][name];
+                    }
+                });
+                
+                saveData();
+                renderAll();
+                select.value = '';
                 showNotification(`${name} 已移除`, 'success');
-            } catch (error) {
-                console.error("Error removing student:", error);
-                showNotification("移除學生失敗", "error");
             }
-        };
+        }
 
         function updateRemoveSelect() {
             const select = document.getElementById('removeStudentSelect');
             select.innerHTML = '<option value="">選擇要移除的學生</option>';
-            students.sort((a, b) => a.localeCompare(b, 'zh-Hant')).forEach(student => {
+            // 保持學生原始順序，不排序
+            students.forEach(student => {
                 const option = document.createElement('option');
                 option.value = student;
                 option.textContent = student;
@@ -750,7 +750,7 @@
             });
         }
 
-        window.toggleLeaveMode = () => {
+        function toggleLeaveMode() {
             leaveMode = !leaveMode;
             const btn = document.getElementById('leaveModeBtn');
             if (leaveMode) {
@@ -762,10 +762,13 @@
                 btn.style.background = 'linear-gradient(45deg, var(--color-yellow), #c09a47)';
                 showNotification('退出請假模式', 'success');
             }
-        };
+        }
 
-        window.showResults = () => {
+        function showResults() {
+            const attendance = getCurrentAttendance();
             const presentList = [], absentList = [], leaveList = [];
+            
+            // 保持學生原始順序
             students.forEach(student => {
                 const status = attendance[student];
                 if (status === 'present') presentList.push(student);
@@ -787,7 +790,93 @@
             `;
             document.getElementById('resultsContent').innerHTML = html;
             showModal('resultsModal');
-        };
+        }
+
+        // --- 資料匯出/匯入功能 ---
+        function exportData() {
+            try {
+                const exportData = {
+                    students: students,
+                    attendanceHistory: attendanceHistory,
+                    exportDate: new Date().toISOString(),
+                    version: "1.0"
+                };
+                
+                const dataStr = JSON.stringify(exportData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(dataBlob);
+                link.download = `扶少點名系統_${currentDateKey}.json`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                showNotification('資料已匯出', 'success');
+            } catch (error) {
+                console.error('匯出失敗:', error);
+                showNotification('匯出資料失敗', 'error');
+            }
+        }
+
+        function importData() {
+            const fileInput = document.getElementById('importFile');
+            const file = fileInput.files[0];
+            
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    if (!importedData.students || !importedData.attendanceHistory) {
+                        throw new Error('資料格式不正確');
+                    }
+                    
+                    if (confirm('匯入資料將覆蓋現有資料，確定要繼續嗎？')) {
+                        students = importedData.students;
+                        attendanceHistory = importedData.attendanceHistory;
+                        
+                        // 確保今日有出勤記錄項目
+                        if (!attendanceHistory[currentDateKey]) {
+                            attendanceHistory[currentDateKey] = {};
+                        }
+                        
+                        saveData();
+                        renderAll();
+                        showNotification('資料匯入成功', 'success');
+                    }
+                } catch (error) {
+                    console.error('匯入失敗:', error);
+                    showNotification('匯入資料失敗，請檢查檔案格式', 'error');
+                }
+            };
+            reader.readAsText(file);
+            
+            // 清除檔案選擇
+            fileInput.value = '';
+        }
+
+        function clearAllData() {
+            if (confirm('確定要清除所有資料嗎？此操作無法復原！')) {
+                if (confirm('最後確認：這將刪除所有學生名單和點名記錄！')) {
+                    localStorage.removeItem(STORAGE_KEYS.STUDENTS);
+                    localStorage.removeItem(STORAGE_KEYS.ATTENDANCE);
+                    localStorage.removeItem('lastSaved');
+                    
+                    // 重設為空的學生名單
+                    students = [];
+                    attendanceHistory = {};
+                    attendanceHistory[currentDateKey] = {};
+                    
+                    saveData();
+                    renderAll();
+                    closeModal('settingsModal');
+                    showNotification('所有資料已清除', 'success');
+                }
+            }
+        }
 
         // --- UI Helper Functions ---
         function updateDateInfo() {
@@ -796,29 +885,20 @@
             document.getElementById('currentDate').textContent = now.toLocaleDateString('zh-TW', options);
         }
 
-        window.showModal = (modalId) => {
+        function showModal(modalId) {
             const modal = document.getElementById(modalId);
             if(modal) modal.style.display = 'flex';
-        };
+        }
         
-        window.showManagementModal = () => {
+        function showManagementModal() {
             closeModal('settingsModal');
             showModal('managementModal');
         }
 
-        window.closeModal = (modalId) => {
+        function closeModal(modalId) {
             const modal = document.getElementById(modalId);
             if(modal) modal.style.display = 'none';
-        };
-        
-        window.showCustomConfirm = (message, onConfirm) => {
-            document.getElementById('confirmMessage').textContent = message;
-            const confirmBtn = document.getElementById('confirmActionBtn');
-            confirmBtn.onclick = () => {
-                onConfirm();
-            };
-            showModal('customConfirmModal');
-        };
+        }
 
         function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
@@ -835,10 +915,14 @@
                     closeModal(event.target.id);
                 }
             };
+            
             // Enter key for adding student
             document.getElementById('newStudentName').addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') addStudent();
             });
+            
+            // 頁面離開前自動儲存
+            window.addEventListener('beforeunload', saveData);
         }
     </script>
 </body>

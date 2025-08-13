@@ -447,7 +447,6 @@
         </div>
         
         <div class="content">
-            <div class="stats" id="statsGrid" style="display: none;"></div>
             <div class="student-grid" id="studentGrid">
                 <p>正在連接雲端資料庫...</p>
             </div>
@@ -953,7 +952,6 @@
 
         function renderAll() {
             renderStudents();
-            renderStats();
             updateCurrentDate();
         }
 
@@ -981,39 +979,6 @@
                     </div>
                 `;
             }).join('');
-        }
-
-        function renderStats() {
-            const attendance = getCurrentAttendance();
-            const present = Object.values(attendance).filter(status => status === 'present').length;
-            const onLeave = Object.values(attendance).filter(status => status === 'on-leave').length;
-            const absent = students.length - present - onLeave;
-            
-            const statsGrid = document.getElementById('statsGrid');
-            
-            if (students.length > 0) {
-                statsGrid.style.display = 'grid';
-                statsGrid.innerHTML = `
-                    <div class="stat-card">
-                        <div class="stat-number" style="color: var(--color-green);">${present}</div>
-                        <div class="stat-label">出席</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" style="color: var(--color-orange);">${absent}</div>
-                        <div class="stat-label">缺席</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" style="color: var(--color-yellow);">${onLeave}</div>
-                        <div class="stat-label">請假</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" style="color: var(--color-blue);">${students.length}</div>
-                        <div class="stat-label">總人數</div>
-                    </div>
-                `;
-            } else {
-                statsGrid.style.display = 'none';
-            }
         }
 
         function updateCurrentDate() {

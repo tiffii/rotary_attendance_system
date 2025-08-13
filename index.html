@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>扶少點名系統</title>
+    <title>扶少點名系統 - 雲端同步版</title>
     <!-- 引入 Google Fonts - Noto Sans TC -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -502,8 +502,8 @@
             <h2><i class="ph-fill ph-gear-six"></i> 設定</h2>
             <div class="settings-grid">
                 <button class="btn btn-primary" onclick="showManagementModal()">學生管理</button>
-                <button class="btn btn-danger" onclick="resetAttendance()">重置當日點名</button>
                 <button class="btn btn-purple" onclick="showModal('configModal')">Firebase 設定</button>
+                <button class="btn btn-danger" onclick="resetAllData()">重設整個系統</button>
             </div>
         </div>
     </div>
@@ -946,6 +946,46 @@
                 showNotification('今日點名記錄已重置', 'success');
             }
         };
+
+        // --- 新增的函式：重設所有資料 ---
+        window.resetAllData = async () => {
+            if (!confirm('🚨 警告：此操作將永久刪除所有學生名單及點名記錄！您確定要重設整個系統嗎？')) {
+                return; // 如果使用者取消，則不做任何事
+            }
+
+            // 清除本地資料
+            students = [];
+            attendanceHistory = {};
+
+            if (isOnline) {
+                try {
+                    const batch = writeBatch(db);
+                    const attendanceCollection = collection(db, 'attendance-system');
+                    const querySnapshot = await getDocs(attendanceCollection);
+                    
+                    querySnapshot.forEach((docSnap) => {
+                        // 刪除所有 document，包括學生名單
+                        const docRef = doc(db, 'attendance-system', docSnap.id);
+                        batch.delete(docRef);
+                    });
+                    
+                    await batch.commit();
+                    showNotification('系統已重設！正在重新整理...', 'success');
+                    // 等待 Firebase 同步，然後重新載入
+                    setTimeout(() => location.reload(), 1500);
+
+                } catch (error) {
+                    console.error('重設資料時發生錯誤:', error);
+                    showNotification('重設失敗，請檢查網路連線', 'error');
+                }
+            } else {
+                // 離線模式
+                saveOfflineData();
+                showNotification('離線模式已重設所有資料！正在重新整理...', 'success');
+                setTimeout(() => location.reload(), 1500);
+            }
+        };
+        // --- 結束新增 ---
 
         // --- 輔助函式 ---
         function getCurrentAttendance() {

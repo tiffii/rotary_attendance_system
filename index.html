@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>扶少點名系統</title>
+    <title>扶少點名系統 - 雲端同步版</title>
     <!-- 引入 Google Fonts - Noto Sans TC -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -114,7 +114,7 @@
         }
         
         .header-actions .btn {
-            font-size: 1.2em; /* 增加標題按鈕字體大小 */
+            font-size: 1.2em;
         }
 
         .content {
@@ -187,7 +187,7 @@
         }
 
         .student-name {
-            font-size: 1.5em; /* 增加學生姓名字體大小 */
+            font-size: 1.5em;
             font-weight: bold;
             margin-bottom: 10px;
         }
@@ -376,19 +376,43 @@
         .results-list-absent { background: rgba(226, 100, 72, 0.1); color: var(--color-orange); }
         .results-list-on-leave { background: rgba(217, 172, 90, 0.1); color: var(--color-yellow); }
 
-        .data-management {
-            margin-top: 20px;
-            padding: 15px;
+        .firebase-config {
             background: rgba(95, 143, 167, 0.1);
-            border-radius: 10px;
             border-left: 4px solid var(--color-blue);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 8px;
         }
 
-        .export-import-section {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-            flex-wrap: wrap;
+        .firebase-config textarea {
+            width: 100%;
+            height: 150px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+
+        .connection-status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .connected {
+            background: rgba(76, 175, 80, 0.2);
+            color: var(--color-green);
+        }
+
+        .disconnected {
+            background: rgba(226, 100, 72, 0.2);
+            color: var(--color-orange);
+        }
+
+        .connecting {
+            background: rgba(217, 172, 90, 0.2);
+            color: var(--color-yellow);
         }
 
         @media (max-width: 768px) {
@@ -400,7 +424,6 @@
             .header-main-row { flex-direction: column; }
             .header-actions { flex-direction: column; }
             .modal-content { width: 95%; padding: 20px; }
-            .export-import-section { flex-direction: column; }
         }
     </style>
 </head>
@@ -411,6 +434,7 @@
                 <h1>扶少點名系統</h1>
                 <div class="week-info">
                     <span id="currentDate"></span>
+                    <span id="connectionStatus" class="connection-status connecting">連接中...</span>
                 </div>
             </div>
             
@@ -423,12 +447,52 @@
         </div>
         
         <div class="content">
+            <div class="stats" id="statsGrid" style="display: none;"></div>
             <div class="student-grid" id="studentGrid">
-                <!-- 學生卡片會在這裡動態生成 -->
+                <p>正在連接雲端資料庫...</p>
             </div>
         </div>
+        
         <div class="footer">
-            資料自動儲存 | 最後更新：<span id="lastSaved"></span>
+            ☁️ 雲端即時同步 | 所有裝置資料自動同步
+        </div>
+    </div>
+
+    <!-- Firebase 設定模態框 -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <h2>🔥 Firebase 設定</h2>
+            <p style="color: #666; margin-bottom: 15px;">
+                請在下方貼上您的 Firebase 設定資訊。設定完成後，所有裝置的資料將會自動同步。
+            </p>
+            
+            <div class="firebase-config">
+                <h4>Firebase 設定 JSON</h4>
+                <textarea id="firebaseConfig" placeholder='{
+  "apiKey": "your-api-key",
+  "authDomain": "your-project.firebaseapp.com",
+  "projectId": "your-project-id",
+  "storageBucket": "your-project.appspot.com",
+  "messagingSenderId": "123456789",
+  "appId": "your-app-id"
+}'></textarea>
+            </div>
+            
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px;">
+                <button class="btn btn-primary" onclick="saveFirebaseConfig()">儲存設定</button>
+                <button class="btn btn-danger" onclick="useOfflineMode()">離線模式</button>
+            </div>
+            
+            <div style="margin-top: 20px; font-size: 0.9em; color: #666;">
+                <h4>如何取得 Firebase 設定？</h4>
+                <ol>
+                    <li>到 <a href="https://console.firebase.google.com/" target="_blank">Firebase Console</a></li>
+                    <li>建立新專案或選擇現有專案</li>
+                    <li>啟用 Firestore 資料庫（測試模式）</li>
+                    <li>到專案設定 → 應用程式 → 網頁應用程式</li>
+                    <li>複製設定物件並貼到上方</li>
+                </ol>
+            </div>
         </div>
     </div>
 
@@ -440,21 +504,7 @@
             <div class="settings-grid">
                 <button class="btn btn-primary" onclick="showManagementModal()">學生管理</button>
                 <button class="btn btn-danger" onclick="resetAttendance()">重置當日點名</button>
-            </div>
-            
-            <div class="data-management">
-                <h4><i class="ph-fill ph-database"></i> 資料管理</h4>
-                <p style="color: #666; font-size: 0.9em; margin: 10px 0;">
-                    所有資料都儲存在瀏覽器中，團隊成員可通過匯出/匯入功能同步資料
-                </p>
-                <div class="export-import-section">
-                    <button class="btn btn-purple" onclick="exportData()">匯出資料</button>
-                    <label for="importFile" class="btn btn-purple" style="cursor: pointer;">
-                        匯入資料
-                        <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importData()">
-                    </label>
-                    <button class="btn btn-danger" onclick="clearAllData()">清除所有資料</button>
-                </div>
+                <button class="btn btn-purple" onclick="showModal('configModal')">Firebase 設定</button>
             </div>
         </div>
     </div>
@@ -465,7 +515,7 @@
             <span class="close" onclick="closeModal('managementModal')">&times;</span>
             <h2><i class="ph-fill ph-users"></i> 學生管理</h2>
             
-            <p style="color: #666; margin-bottom: 15px;">新增、移除或批量新增學生。所有更動將自動儲存。</p>
+            <p style="color: #666; margin-bottom: 15px;">新增、移除或批量新增學生。所有更動將即時同步給團隊成員。</p>
             
             <div class="input-group">
                 <input type="text" id="newStudentName" placeholder="輸入學生姓名">
@@ -491,167 +541,277 @@
         <div class="modal-content">
             <span class="close" onclick="closeModal('resultsModal')">&times;</span>
             <h2>📊 點名結果</h2>
-            <div id="resultsContent">
-                <!-- 結果會在這裡顯示 -->
-            </div>
+            <div id="resultsContent"></div>
         </div>
     </div>
 
     <!-- 通知訊息 -->
     <div id="notification" class="notification"></div>
 
-    <script>
+    <script type="module">
+        // Import Firebase modules
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
         // --- 全域變數 ---
         let students = [];
         let attendanceHistory = {};
         let leaveMode = false;
-        const currentDateKey = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        let isOnline = false;
+        let db = null;
+        
+        const currentDateKey = new Date().toISOString().split('T')[0];
+        const STORAGE_KEY = 'attendanceSystem_firebaseConfig';
 
-        // 儲存鍵名
-        const STORAGE_KEYS = {
-            STUDENTS: 'attendanceSystem_students',
-            ATTENDANCE: 'attendanceSystem_attendance',
-            SETTINGS: 'attendanceSystem_settings'
+        // 預設的 Firebase 設定
+        const defaultFirebaseConfig = {
+            apiKey: "AIzaSyB4n7tnjJhyI9cmxpjnqbWMfrjDOYIrA3U",
+            authDomain: "attendance-check-60081.firebaseapp.com",
+            projectId: "attendance-check-60081",
+            storageBucket: "attendance-check-60081.firebasestorage.app",
+            messagingSenderId: "33068227665",
+            appId: "1:33068227665:web:dba6f037b27c9aabc22c70",
+            measurementId: "G-PLSZCJTTCF"
         };
 
-        // --- 資料持久化函式 ---
-        function saveData() {
+        // --- Firebase 初始化 ---
+        async function initFirebase() {
+            let firebaseConfig = null;
+            const savedConfig = localStorage.getItem(STORAGE_KEY);
+            
+            if (savedConfig) {
+                try {
+                    firebaseConfig = JSON.parse(savedConfig);
+                } catch (error) {
+                    console.error('解析儲存的設定失敗:', error);
+                }
+            }
+            
+            // 如果沒有儲存的設定，使用預設設定
+            if (!firebaseConfig) {
+                firebaseConfig = defaultFirebaseConfig;
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(firebaseConfig));
+                showNotification('使用預設 Firebase 設定', 'success');
+            }
+
             try {
-                // 儲存學生名單
-                localStorage.setItem(STORAGE_KEYS.STUDENTS, JSON.stringify(students));
+                console.log('正在初始化 Firebase...', firebaseConfig.projectId);
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
                 
-                // 儲存出勤記錄
-                localStorage.setItem(STORAGE_KEYS.ATTENDANCE, JSON.stringify(attendanceHistory));
-                
-                // 更新最後儲存時間
-                const now = new Date().toLocaleString('zh-TW');
-                localStorage.setItem('lastSaved', now);
-                document.getElementById('lastSaved').textContent = now;
-                
-                console.log('資料已儲存');
+                // 測試連接並初始化資料
+                await initializeData();
+                setupRealtimeListeners();
+                updateConnectionStatus('connected');
+                showNotification('Firebase 連接成功！', 'success');
+                return true;
             } catch (error) {
-                console.error('儲存資料失敗:', error);
-                showNotification('儲存資料失敗', 'error');
+                console.error('Firebase 初始化失敗:', error);
+                updateConnectionStatus('disconnected');
+                showNotification(`連接失敗: ${error.message}`, 'error');
+                loadOfflineData();
+                return false;
             }
         }
 
-        function loadData() {
+        async function initializeData() {
             try {
-                // 載入學生名單
-                const savedStudents = localStorage.getItem(STORAGE_KEYS.STUDENTS);
-                if (savedStudents) {
-                    students = JSON.parse(savedStudents);
+                // 初始化學生名單
+                const studentsRef = doc(db, 'attendance-system', 'students');
+                const studentsSnap = await getDoc(studentsRef);
+                
+                if (!studentsSnap.exists()) {
+                    console.log('初始化學生名單...');
+                    await setDoc(studentsRef, { 
+                        list: [],
+                        created: new Date().toISOString(),
+                        lastUpdated: new Date().toISOString()
+                    });
+                }
+
+                // 初始化今日出勤記錄
+                const attendanceRef = doc(db, 'attendance-system', currentDateKey);
+                const attendanceSnap = await getDoc(attendanceRef);
+                
+                if (!attendanceSnap.exists()) {
+                    console.log('初始化今日出勤記錄...');
+                    await setDoc(attendanceRef, { 
+                        records: {},
+                        date: currentDateKey,
+                        created: new Date().toISOString()
+                    });
+                }
+
+                console.log('Firebase 資料初始化完成');
+            } catch (error) {
+                console.error('資料初始化失敗:', error);
+                throw error;
+            }
+        }
+
+        function setupRealtimeListeners() {
+            console.log('設置即時監聽器...');
+            
+            // 監聽學生名單
+            const studentsRef = doc(db, 'attendance-system', 'students');
+            onSnapshot(studentsRef, (docSnap) => {
+                console.log('學生名單更新');
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    students = data.list || [];
                 } else {
-                    // 空的學生名單，不使用預設名單
                     students = [];
-                    saveData();
                 }
+                renderAll();
+                updateRemoveStudentSelect();
+            }, (error) => {
+                console.error('學生名單監聽失敗:', error);
+                updateConnectionStatus('disconnected');
+                showNotification('同步中斷，切換到離線模式', 'error');
+                loadOfflineData();
+            });
 
-                // 載入出勤記錄
-                const savedAttendance = localStorage.getItem(STORAGE_KEYS.ATTENDANCE);
-                if (savedAttendance) {
-                    attendanceHistory = JSON.parse(savedAttendance);
+            // 監聽今日出勤
+            const attendanceRef = doc(db, 'attendance-system', currentDateKey);
+            onSnapshot(attendanceRef, (docSnap) => {
+                console.log('出勤記錄更新');
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    attendanceHistory[currentDateKey] = data.records || {};
                 } else {
-                    attendanceHistory = {};
-                }
-
-                // 確保今日有出勤記錄項目
-                if (!attendanceHistory[currentDateKey]) {
                     attendanceHistory[currentDateKey] = {};
                 }
+                renderAll();
+            }, (error) => {
+                console.error('出勤記錄監聽失敗:', error);
+                updateConnectionStatus('disconnected');
+                showNotification('同步中斷，切換到離線模式', 'error');
+            });
+        }
 
-                // 更新最後儲存時間顯示
-                const lastSaved = localStorage.getItem('lastSaved');
-                if (lastSaved) {
-                    document.getElementById('lastSaved').textContent = lastSaved;
-                } else {
-                    document.getElementById('lastSaved').textContent = '首次使用';
-                }
-
-                console.log('資料已載入');
-            } catch (error) {
-                console.error('載入資料失敗:', error);
-                showNotification('載入資料失敗', 'error');
-                // 使用空的學生名單
-                students = [];
-                attendanceHistory = {};
-                attendanceHistory[currentDateKey] = {};
+        // --- UI 函式 ---
+        function updateConnectionStatus(status) {
+            const statusElement = document.getElementById('connectionStatus');
+            statusElement.className = `connection-status ${status}`;
+            
+            switch(status) {
+                case 'connected':
+                    statusElement.textContent = '☁️ 已連接';
+                    isOnline = true;
+                    break;
+                case 'connecting':
+                    statusElement.textContent = '🔄 連接中';
+                    isOnline = false;
+                    break;
+                case 'disconnected':
+                    statusElement.textContent = '❌ 離線';
+                    isOnline = false;
+                    break;
             }
         }
 
-        function getCurrentAttendance() {
-            return attendanceHistory[currentDateKey] || {};
+        window.saveFirebaseConfig = async () => {
+            const configText = document.getElementById('firebaseConfig').value.trim();
+            if (!configText) {
+                showNotification('請輸入 Firebase 設定', 'error');
+                return;
+            }
+
+            try {
+                const config = JSON.parse(configText);
+                if (!config.apiKey || !config.projectId) {
+                    throw new Error('設定格式不正確');
+                }
+                
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+                closeModal('configModal');
+                showNotification('設定已儲存，正在連接...', 'success');
+                
+                // 重新載入頁面以套用新設定
+                setTimeout(() => location.reload(), 1000);
+            } catch (error) {
+                showNotification('設定格式錯誤，請檢查 JSON 格式', 'error');
+            }
+        };
+
+        window.useOfflineMode = () => {
+            localStorage.removeItem(STORAGE_KEY);
+            closeModal('configModal');
+            showNotification('使用離線模式', 'success');
+            loadOfflineData();
+            renderAll();
+        };
+
+        // --- 資料操作函式 ---
+        async function updateStudentList(newStudents) {
+            if (isOnline) {
+                try {
+                    const studentsRef = doc(db, 'attendance-system', 'students');
+                    await setDoc(studentsRef, { list: newStudents });
+                } catch (error) {
+                    console.error('更新學生名單失敗:', error);
+                    showNotification('同步失敗', 'error');
+                }
+            } else {
+                students = newStudents;
+                saveOfflineData();
+                renderAll();
+                updateRemoveStudentSelect();
+            }
         }
 
-        function setCurrentAttendance(studentName, status) {
+        async function updateAttendance(studentName, status) {
+            if (isOnline) {
+                try {
+                    const attendanceRef = doc(db, 'attendance-system', currentDateKey);
+                    const updateData = {};
+                    
+                    if (status === null) {
+                        // 移除記錄
+                        const currentData = attendanceHistory[currentDateKey] || {};
+                        delete currentData[studentName];
+                        await setDoc(attendanceRef, { records: currentData });
+                    } else {
+                        updateData[`records.${studentName}`] = status;
+                        await updateDoc(attendanceRef, updateData);
+                    }
+                } catch (error) {
+                    console.error('更新出勤記錄失敗:', error);
+                    showNotification('同步失敗', 'error');
+                }
+            } else {
+                if (status === null) {
+                    delete attendanceHistory[currentDateKey][studentName];
+                } else {
+                    attendanceHistory[currentDateKey][studentName] = status;
+                }
+                saveOfflineData();
+                renderAll();
+            }
+        }
+
+        // --- 離線資料處理 ---
+        function loadOfflineData() {
+            const savedStudents = localStorage.getItem('offline_students');
+            const savedAttendance = localStorage.getItem('offline_attendance');
+            
+            students = savedStudents ? JSON.parse(savedStudents) : [];
+            attendanceHistory = savedAttendance ? JSON.parse(savedAttendance) : {};
+            
             if (!attendanceHistory[currentDateKey]) {
                 attendanceHistory[currentDateKey] = {};
             }
             
-            if (status === null) {
-                delete attendanceHistory[currentDateKey][studentName];
-            } else {
-                attendanceHistory[currentDateKey][studentName] = status;
-            }
-            
-            saveData();
+            updateRemoveStudentSelect();
         }
 
-        // --- 初始化 ---
-        document.addEventListener('DOMContentLoaded', () => {
-            updateDateInfo();
-            loadData();
-            renderAll();
-            setupEventListeners();
-            
-            // 每5分鐘自動儲存一次（備份）
-            setInterval(saveData, 5 * 60 * 1000);
-        });
-
-        // --- 核心渲染函式 ---
-        function renderAll() {
-            renderStudents();
-            updateRemoveSelect();
+        function saveOfflineData() {
+            localStorage.setItem('offline_students', JSON.stringify(students));
+            localStorage.setItem('offline_attendance', JSON.stringify(attendanceHistory));
         }
 
-        function renderStudents() {
-            const grid = document.getElementById('studentGrid');
-            grid.innerHTML = '';
-            const attendance = getCurrentAttendance();
-
-            if (students.length === 0) {
-                grid.innerHTML = '<p>目前沒有學生。請至「設定」>「學生管理」新增學生。</p>';
-                return;
-            }
-
-            // 保持學生順序不變，按照原本的順序顯示
-            students.forEach(student => {
-                const status = attendance[student] || 'not-marked';
-                const card = document.createElement('div');
-                card.className = `student-card ${status}`;
-                card.onclick = () => toggleAttendance(student);
-                
-                let statusText;
-                if (status === 'present') {
-                    statusText = '✅ 已點名';
-                } else if (status === 'on-leave') {
-                    statusText = '📋 請假';
-                } else {
-                    statusText = '❌ 未點名';
-                }
-
-                card.innerHTML = `
-                    <div class="student-name">${student}</div>
-                    <div class="student-status">
-                        ${statusText}
-                    </div>
-                `;
-                grid.appendChild(card);
-            });
-        }
-
-        // --- 事件處理 & 邏輯 ---
-        function toggleAttendance(studentName) {
+        // --- 主要功能函式 ---
+        window.toggleAttendance = async (studentName) => {
             const attendance = getCurrentAttendance();
             let newStatus;
             
@@ -665,83 +825,124 @@
                 newStatus = attendance[studentName] === 'present' ? null : 'present';
             }
 
-            setCurrentAttendance(studentName, newStatus);
-            
+            // 更新本地資料
             if (newStatus) {
-                showNotification(`${studentName} 已標記為 ${newStatus === 'present' ? '已點名' : '請假'}`, 'success');
+                attendanceHistory[currentDateKey][studentName] = newStatus;
             } else {
-                showNotification(`${studentName} 已取消標記`, 'success');
+                delete attendanceHistory[currentDateKey][studentName];
             }
+
+            // 同步到雲端或儲存到本地
+            await updateAttendance(studentName, newStatus);
             
-            renderStudents();
-        }
-
-        function resetAttendance() {
-            if (confirm("確定要重置今天所有的點名記錄嗎？此操作無法復原。")) {
-                attendanceHistory[currentDateKey] = {};
-                saveData();
-                renderStudents();
-                closeModal('settingsModal');
-                showNotification('當日點名記錄已重置', 'success');
-            }
-        }
-
-        function addStudent() {
-            const name = document.getElementById('newStudentName').value.trim();
-            if (!name) return showNotification('請輸入學生姓名', 'error');
-            if (students.includes(name)) return showNotification('學生已存在', 'error');
-            
-            students.push(name);
-            saveData();
-            renderAll();
-            document.getElementById('newStudentName').value = '';
-            showNotification(`${name} 新增成功`, 'success');
-        }
-
-        function addBulkStudents() {
-            const bulkText = document.getElementById('bulkStudents').value.trim();
-            if (!bulkText) return showNotification('請輸入學生姓名', 'error');
-            
-            const names = bulkText.split('\n')
-                .map(name => name.trim())
-                .filter(name => name && !students.includes(name));
-            
-            if (names.length === 0) return showNotification('沒有新學生被新增（可能都已存在）', 'error');
-
-            students.push(...names);
-            saveData();
-            renderAll();
-            document.getElementById('bulkStudents').value = '';
-            showNotification(`成功新增 ${names.length} 位學生`, 'success');
-        }
-
-        function removeStudent() {
-            const select = document.getElementById('removeStudentSelect');
-            const name = select.value;
-            if (!name) return showNotification('請選擇要移除的學生', 'error');
-
-            if (confirm(`確定要移除學生 "${name}" 嗎？此操作會將其從名單和所有點名記錄中刪除。`)) {
-                // 從學生名單中移除
-                students = students.filter(student => student !== name);
-                
-                // 從所有出勤記錄中移除
-                Object.keys(attendanceHistory).forEach(date => {
-                    if (attendanceHistory[date][name]) {
-                        delete attendanceHistory[date][name];
-                    }
-                });
-                
-                saveData();
+            // 即時更新 UI
+            if (!isOnline) {
                 renderAll();
-                select.value = '';
-                showNotification(`${name} 已移除`, 'success');
             }
+        };
+
+        window.toggleLeaveMode = () => {
+            leaveMode = !leaveMode;
+            const btn = document.getElementById('leaveModeBtn');
+            if (leaveMode) {
+                btn.textContent = '點名模式';
+                btn.className = 'btn btn-primary';
+                showNotification('已切換到請假模式', 'success');
+            } else {
+                btn.textContent = '標記請假';
+                btn.className = 'btn btn-warning';
+                showNotification('已切換到點名模式', 'success');
+            }
+        };
+
+        window.addStudent = async () => {
+            const nameInput = document.getElementById('newStudentName');
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                showNotification('請輸入學生姓名', 'error');
+                return;
+            }
+            
+            if (students.includes(name)) {
+                showNotification('學生已存在', 'error');
+                return;
+            }
+            
+            const newStudents = [...students, name];
+            await updateStudentList(newStudents);
+            nameInput.value = '';
+            showNotification(`已新增學生：${name}`, 'success');
+        };
+
+        window.addBulkStudents = async () => {
+            const bulkText = document.getElementById('bulkStudents').value.trim();
+            if (!bulkText) {
+                showNotification('請輸入學生姓名', 'error');
+                return;
+            }
+            
+            const names = bulkText.split('\n').map(name => name.trim()).filter(name => name);
+            const newNames = names.filter(name => !students.includes(name));
+            
+            if (newNames.length === 0) {
+                showNotification('沒有新的學生需要新增', 'error');
+                return;
+            }
+            
+            const newStudents = [...students, ...newNames];
+            await updateStudentList(newStudents);
+            document.getElementById('bulkStudents').value = '';
+            showNotification(`已批量新增 ${newNames.length} 名學生`, 'success');
+        };
+
+        window.removeStudent = async () => {
+            const select = document.getElementById('removeStudentSelect');
+            const studentName = select.value;
+            
+            if (!studentName) {
+                showNotification('請選擇要移除的學生', 'error');
+                return;
+            }
+            
+            if (confirm(`確定要移除學生「${studentName}」嗎？`)) {
+                const newStudents = students.filter(name => name !== studentName);
+                await updateStudentList(newStudents);
+                
+                // 同時移除該學生的出勤記錄
+                if (attendanceHistory[currentDateKey][studentName]) {
+                    await updateAttendance(studentName, null);
+                }
+                
+                showNotification(`已移除學生：${studentName}`, 'success');
+            }
+        };
+
+        window.resetAttendance = async () => {
+            if (confirm('確定要重置今日的點名記錄嗎？此操作無法復原！')) {
+                attendanceHistory[currentDateKey] = {};
+                
+                if (isOnline) {
+                    const attendanceRef = doc(db, 'attendance-system', currentDateKey);
+                    await setDoc(attendanceRef, { records: {} });
+                } else {
+                    saveOfflineData();
+                    renderAll();
+                }
+                
+                showNotification('今日點名記錄已重置', 'success');
+            }
+        };
+
+        // --- 輔助函式 ---
+        function getCurrentAttendance() {
+            return attendanceHistory[currentDateKey] || {};
         }
 
-        function updateRemoveSelect() {
+        function updateRemoveStudentSelect() {
             const select = document.getElementById('removeStudentSelect');
             select.innerHTML = '<option value="">選擇要移除的學生</option>';
-            // 保持學生原始順序，不排序
+            
             students.forEach(student => {
                 const option = document.createElement('option');
                 option.value = student;
@@ -750,180 +951,202 @@
             });
         }
 
-        function toggleLeaveMode() {
-            leaveMode = !leaveMode;
-            const btn = document.getElementById('leaveModeBtn');
-            if (leaveMode) {
-                btn.textContent = '請假模式 (點擊退出)';
-                btn.style.background = 'linear-gradient(45deg, #c09a47, var(--color-yellow))';
-                showNotification('進入請假模式，點擊學生標記請假', 'success');
-            } else {
-                btn.textContent = '標記請假';
-                btn.style.background = 'linear-gradient(45deg, var(--color-yellow), #c09a47)';
-                showNotification('退出請假模式', 'success');
-            }
+        function renderAll() {
+            renderStudents();
+            renderStats();
+            updateCurrentDate();
         }
 
-        function showResults() {
+        function renderStudents() {
+            const grid = document.getElementById('studentGrid');
             const attendance = getCurrentAttendance();
-            const presentList = [], absentList = [], leaveList = [];
             
-            // 保持學生原始順序
-            students.forEach(student => {
-                const status = attendance[student];
-                if (status === 'present') presentList.push(student);
-                else if (status === 'on-leave') leaveList.push(student);
-                else absentList.push(student);
-            });
+            if (students.length === 0) {
+                grid.innerHTML = '<p style="text-align: center; color: #666;">尚未新增任何學生，請到設定中新增學生。</p>';
+                return;
+            }
             
-            const totalStudents = students.length;
-            const html = `
-                <div class="stats">
-                    <div class="stat-card"><div class="stat-number">${totalStudents}</div><div class="stat-label">總人數</div></div>
-                    <div class="stat-card"><div class="stat-number">${presentList.length}</div><div class="stat-label">已點名</div></div>
-                    <div class="stat-card"><div class="stat-number">${absentList.length}</div><div class="stat-label">未點名</div></div>
-                    <div class="stat-card"><div class="stat-number">${leaveList.length}</div><div class="stat-label">請假</div></div>
-                </div>
-                ${presentList.length > 0 ? `<h3><i class="ph-fill ph-check-circle"></i> 已點名學生 (${presentList.length}人)</h3><p class="results-list results-list-present">${presentList.join('、')}</p>` : ''}
-                ${absentList.length > 0 ? `<h3><i class="ph-fill ph-x-circle"></i> 未點名學生 (${absentList.length}人)</h3><p class="results-list results-list-absent"><strong>${absentList.join('、')}</strong></p>` : ''}
-                ${leaveList.length > 0 ? `<h3><i class="ph-fill ph-note-pencil"></i> 請假學生 (${leaveList.length}人)</h3><p class="results-list results-list-on-leave">${leaveList.join('、')}</p>` : ''}
-            `;
-            document.getElementById('resultsContent').innerHTML = html;
-            showModal('resultsModal');
-        }
-
-        // --- 資料匯出/匯入功能 ---
-        function exportData() {
-            try {
-                const exportData = {
-                    students: students,
-                    attendanceHistory: attendanceHistory,
-                    exportDate: new Date().toISOString(),
-                    version: "1.0"
+            grid.innerHTML = students.map(student => {
+                const status = attendance[student] || 'not-marked';
+                const statusText = {
+                    'present': '出席',
+                    'on-leave': '請假',
+                    'not-marked': '未點名'
                 };
                 
-                const dataStr = JSON.stringify(exportData, null, 2);
-                const dataBlob = new Blob([dataStr], { type: 'application/json' });
-                
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(dataBlob);
-                link.download = `扶少點名系統_${currentDateKey}.json`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                showNotification('資料已匯出', 'success');
-            } catch (error) {
-                console.error('匯出失敗:', error);
-                showNotification('匯出資料失敗', 'error');
+                return `
+                    <div class="student-card ${status}" onclick="toggleAttendance('${student}')">
+                        <div class="student-name">${student}</div>
+                        <div class="student-status">${statusText[status]}</div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function renderStats() {
+            const attendance = getCurrentAttendance();
+            const present = Object.values(attendance).filter(status => status === 'present').length;
+            const onLeave = Object.values(attendance).filter(status => status === 'on-leave').length;
+            const absent = students.length - present - onLeave;
+            
+            const statsGrid = document.getElementById('statsGrid');
+            
+            if (students.length > 0) {
+                statsGrid.style.display = 'grid';
+                statsGrid.innerHTML = `
+                    <div class="stat-card">
+                        <div class="stat-number" style="color: var(--color-green);">${present}</div>
+                        <div class="stat-label">出席</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" style="color: var(--color-orange);">${absent}</div>
+                        <div class="stat-label">缺席</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" style="color: var(--color-yellow);">${onLeave}</div>
+                        <div class="stat-label">請假</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" style="color: var(--color-blue);">${students.length}</div>
+                        <div class="stat-label">總人數</div>
+                    </div>
+                `;
+            } else {
+                statsGrid.style.display = 'none';
             }
         }
 
-        function importData() {
-            const fileInput = document.getElementById('importFile');
-            const file = fileInput.files[0];
-            
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const importedData = JSON.parse(e.target.result);
-                    
-                    if (!importedData.students || !importedData.attendanceHistory) {
-                        throw new Error('資料格式不正確');
-                    }
-                    
-                    if (confirm('匯入資料將覆蓋現有資料，確定要繼續嗎？')) {
-                        students = importedData.students;
-                        attendanceHistory = importedData.attendanceHistory;
-                        
-                        // 確保今日有出勤記錄項目
-                        if (!attendanceHistory[currentDateKey]) {
-                            attendanceHistory[currentDateKey] = {};
-                        }
-                        
-                        saveData();
-                        renderAll();
-                        showNotification('資料匯入成功', 'success');
-                    }
-                } catch (error) {
-                    console.error('匯入失敗:', error);
-                    showNotification('匯入資料失敗，請檢查檔案格式', 'error');
-                }
-            };
-            reader.readAsText(file);
-            
-            // 清除檔案選擇
-            fileInput.value = '';
-        }
-
-        function clearAllData() {
-            if (confirm('確定要清除所有資料嗎？此操作無法復原！')) {
-                if (confirm('最後確認：這將刪除所有學生名單和點名記錄！')) {
-                    localStorage.removeItem(STORAGE_KEYS.STUDENTS);
-                    localStorage.removeItem(STORAGE_KEYS.ATTENDANCE);
-                    localStorage.removeItem('lastSaved');
-                    
-                    // 重設為空的學生名單
-                    students = [];
-                    attendanceHistory = {};
-                    attendanceHistory[currentDateKey] = {};
-                    
-                    saveData();
-                    renderAll();
-                    closeModal('settingsModal');
-                    showNotification('所有資料已清除', 'success');
-                }
-            }
-        }
-
-        // --- UI Helper Functions ---
-        function updateDateInfo() {
+        function updateCurrentDate() {
             const now = new Date();
-            const options = { year: 'numeric', month: 'long', day: 'numeric' };
-            document.getElementById('currentDate').textContent = now.toLocaleDateString('zh-TW', options);
+            const dateStr = now.toLocaleDateString('zh-TW', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                weekday: 'long'
+            });
+            document.getElementById('currentDate').textContent = dateStr;
         }
 
-        function showModal(modalId) {
-            const modal = document.getElementById(modalId);
-            if(modal) modal.style.display = 'flex';
-        }
-        
-        function showManagementModal() {
+        // --- 模態框函式 ---
+        window.showModal = (modalId) => {
+            document.getElementById(modalId).style.display = 'flex';
+            
+            if (modalId === 'managementModal') {
+                updateRemoveStudentSelect();
+            } else if (modalId === 'configModal') {
+                const savedConfig = localStorage.getItem(STORAGE_KEY);
+                if (savedConfig) {
+                    document.getElementById('firebaseConfig').value = JSON.stringify(JSON.parse(savedConfig), null, 2);
+                }
+            }
+        };
+
+        window.closeModal = (modalId) => {
+            document.getElementById(modalId).style.display = 'none';
+        };
+
+        window.showManagementModal = () => {
             closeModal('settingsModal');
             showModal('managementModal');
-        }
+        };
 
-        function closeModal(modalId) {
-            const modal = document.getElementById(modalId);
-            if(modal) modal.style.display = 'none';
-        }
+        window.showResults = () => {
+            const attendance = getCurrentAttendance();
+            const present = students.filter(student => attendance[student] === 'present');
+            const onLeave = students.filter(student => attendance[student] === 'on-leave');
+            const absent = students.filter(student => !attendance[student] || attendance[student] === 'not-marked');
+            
+            const resultsContent = document.getElementById('resultsContent');
+            resultsContent.innerHTML = `
+                <div style="margin-bottom: 20px;">
+                    <strong>點名日期：</strong>${new Date().toLocaleDateString('zh-TW')}
+                </div>
+                
+                <div class="results-list results-list-present">
+                    <strong>出席 (${present.length}人)：</strong><br>
+                    ${present.length > 0 ? present.join('、') : '無'}
+                </div>
+                
+                <div class="results-list results-list-absent">
+                    <strong>缺席 (${absent.length}人)：</strong><br>
+                    ${absent.length > 0 ? absent.join('、') : '無'}
+                </div>
+                
+                <div class="results-list results-list-on-leave">
+                    <strong>請假 (${onLeave.length}人)：</strong><br>
+                    ${onLeave.length > 0 ? onLeave.join('、') : '無'}
+                </div>
+                
+                <div style="margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 8px;">
+                    <strong>統計摘要：</strong><br>
+                    總人數：${students.length}人<br>
+                    出席率：${students.length > 0 ? Math.round((present.length / students.length) * 100) : 0}%
+                </div>
+            `;
+            
+            showModal('resultsModal');
+        };
 
+        // --- 通知函式 ---
         function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
             notification.textContent = message;
             notification.className = `notification ${type}`;
-            notification.classList.add('show');
-            setTimeout(() => notification.classList.remove('show'), 3000);
+            
+            // 觸發顯示動畫
+            setTimeout(() => notification.classList.add('show'), 100);
+            
+            // 3秒後隱藏
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
         }
-        
-        function setupEventListeners() {
-            // Close modals on outside click
-            window.onclick = (event) => {
-                if (event.target.classList.contains('modal')) {
-                    closeModal(event.target.id);
+
+        // --- 事件監聽器 ---
+        document.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                const target = e.target;
+                if (target.id === 'newStudentName') {
+                    addStudent();
                 }
-            };
+            }
+        });
+
+        // 點擊模態框外部關閉
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('modal')) {
+                const modalId = e.target.id;
+                if (modalId !== 'configModal') { // 配置模態框不允許點擊外部關閉
+                    closeModal(modalId);
+                }
+            }
+        });
+
+        // --- 初始化 ---
+        async function initialize() {
+            console.log('系統初始化開始...');
+            updateCurrentDate();
+            updateConnectionStatus('connecting');
             
-            // Enter key for adding student
-            document.getElementById('newStudentName').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') addStudent();
-            });
-            
-            // 頁面離開前自動儲存
-            window.addEventListener('beforeunload', saveData);
+            try {
+                const firebaseReady = await initFirebase();
+                
+                if (!firebaseReady) {
+                    console.log('Firebase 連接失敗，載入離線資料');
+                    loadOfflineData();
+                    renderAll();
+                }
+            } catch (error) {
+                console.error('初始化錯誤:', error);
+                updateConnectionStatus('disconnected');
+                showNotification('初始化失敗，使用離線模式', 'error');
+                loadOfflineData();
+                renderAll();
+            }
         }
+
+        // 啟動應用
+        initialize();
     </script>
 </body>
 </html>

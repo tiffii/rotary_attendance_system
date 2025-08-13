@@ -369,6 +369,13 @@
         .results-list-absent { background: rgba(226, 100, 72, 0.1); color: var(--color-orange); }
         .results-list-on-leave { background: rgba(217, 172, 90, 0.1); color: var(--color-yellow); }
 
+        .confirm-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
         @media (max-width: 768px) {
             body { padding: 10px; }
             .header h1 { font-size: 2em; }
@@ -417,7 +424,7 @@
             <h2><i class="ph-fill ph-gear-six"></i> 設定</h2>
             <div class="settings-grid">
                 <button class="btn btn-primary" onclick="showManagementModal()">學生管理</button>
-                <button class="btn btn-danger" onclick="resetAttendance()">重置當日點名</button>
+                <button class="btn btn-danger" onclick="showConfirmReset()">重置當日點名</button>
             </div>
         </div>
     </div>
@@ -444,7 +451,7 @@
                 <select id="removeStudentSelect" style="flex: 1; min-width: 200px;">
                     <option value="">選擇要移除的學生</option>
                 </select>
-                <button class="btn btn-danger" onclick="removeStudent()">移除</button>
+                <button class="btn btn-danger" onclick="showConfirmRemove()">移除</button>
             </div>
         </div>
     </div>
@@ -459,6 +466,17 @@
             </div>
         </div>
     </div>
+    
+    <!-- 自訂確認模態框 -->
+    <div id="customConfirmModal" class="modal">
+        <div class="modal-content">
+            <p id="confirmMessage" style="font-size: 1.2em; text-align: center; margin-bottom: 20px;">確定要執行此操作嗎？</p>
+            <div class="confirm-buttons">
+                <button class="btn btn-danger" id="confirmActionBtn">確定</button>
+                <button class="btn" onclick="closeModal('customConfirmModal')">取消</button>
+            </div>
+        </div>
+    </div>
 
     <!-- 通知訊息 -->
     <div id="notification" class="notification"></div>
@@ -470,29 +488,30 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // --- 全域變數 ---
+        // --- Global variables ---
         let students = [];
         let attendance = {};
         let leaveMode = false;
         const currentDateKey = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
 
-        // Firebase 相關變數
+        // Firebase related variables
         let db, auth;
         let userId;
         let studentsDocRef, attendanceDocRef;
         let studentsUnsubscribe, attendanceUnsubscribe;
 
-        // --- Firebase 設定 ---
-        // These global variables are provided by the environment.
+        // --- Firebase Configuration ---
+        // We use the global variables provided by the Canvas environment for a more reliable connection
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'roll-call-app-default';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-        // --- 初始化 ---
+        // --- Initialization ---
         document.addEventListener('DOMContentLoaded', async () => {
             updateDateInfo();
 
             try {
-                // Initialize Firebase
+                // Initialize Firebase app and services
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
@@ -501,23 +520,25 @@
                 studentsDocRef = doc(db, `artifacts/${appId}/public/data/students`, "studentList");
                 attendanceDocRef = doc(db, `artifacts/${appId}/public/data/attendance`, currentDateKey);
 
-                // Listen for authentication state changes
+                // Authenticate and then set up data listeners
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                // Listen for authentication state changes and set up data listeners
                 onAuthStateChanged(auth, async (user) => {
                     if (user) {
                         userId = user.uid;
                         document.getElementById('userIdDisplay').textContent = `使用者ID: ${userId}`;
                         console.log("Authenticated with user ID:", userId);
-                        // Once authenticated, start listening to data
                         initDataListeners();
                     } else {
                         console.log("User is not signed in.");
-                        // Handle sign-in if no user
-                        await authenticate();
+                        document.getElementById('studentGrid').innerHTML = '<p style="color: red;">身份驗證失敗，請重新載入頁面。</p>';
                     }
                 });
-
-                // Initial authentication attempt
-                await authenticate();
 
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
@@ -528,20 +549,7 @@
             setupEventListeners();
         });
 
-        async function authenticate() {
-            try {
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(auth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(auth);
-                }
-            } catch (error) {
-                console.error("Authentication Error:", error);
-                showNotification("身份驗證失敗", "error");
-            }
-        }
-
-        // --- 資料監聽 ---
+        // --- Data Listeners ---
         function initDataListeners() {
             // Stop any existing listeners before starting new ones
             if (studentsUnsubscribe) studentsUnsubscribe();
@@ -579,7 +587,7 @@
             });
         }
         
-        // --- 核心渲染函式 ---
+        // --- Core Rendering Functions ---
         function renderAll() {
             renderStudents();
             updateRemoveSelect();
@@ -619,7 +627,7 @@
             });
         }
         
-        // --- 事件處理 & 邏輯 ---
+        // --- Event Handlers & Logic ---
         window.toggleAttendance = async (studentName) => {
             let newStatus;
             if (leaveMode) {
@@ -655,17 +663,20 @@
                 showNotification("更新點名狀態失敗", "error");
             }
         };
+        
+        window.showConfirmReset = () => {
+             showCustomConfirm('確定要重置今天所有的點名記錄嗎？此操作無法復原。', resetAttendance);
+        };
 
         window.resetAttendance = async () => {
-            if (confirm("確定要重置今天所有的點名記錄嗎？此操作無法復原。")) {
-                try {
-                    await setDoc(attendanceDocRef, { records: {} });
-                    closeModal('settingsModal');
-                    showNotification('當日點名記錄已重置', 'success');
-                } catch (error) {
-                    console.error("Error resetting attendance:", error);
-                    showNotification("重置失敗", "error");
-                }
+            try {
+                await setDoc(attendanceDocRef, { records: {} });
+                closeModal('customConfirmModal');
+                closeModal('settingsModal');
+                showNotification('當日點名記錄已重置', 'success');
+            } catch (error) {
+                console.error("Error resetting attendance:", error);
+                showNotification("重置失敗", "error");
             }
         };
 
@@ -700,32 +711,34 @@
                 showNotification("批量新增失敗", "error");
             }
         };
-
-        window.removeStudent = async () => {
+        
+        window.showConfirmRemove = () => {
             const select = document.getElementById('removeStudentSelect');
             const name = select.value;
             if (!name) return showNotification('請選擇要移除的學生', 'error');
+            showCustomConfirm(`確定要移除學生 "${name}" 嗎？此操作會將其從名單和今日點名記錄中刪除。`, () => removeStudent(name));
+        };
 
-            if (confirm(`確定要移除學生 "${name}" 嗎？此操作會將其從名單和今日點名記錄中刪除。`)) {
-                try {
-                    const batch = writeBatch(db);
-                    // Remove from student list
-                    batch.update(studentsDocRef, { names: arrayRemove(name) });
-                    // Remove from today's attendance
-                    const attendanceUpdate = {};
-                    attendanceUpdate[`records.${name}`] = null; // This requires server-side handling to delete, simpler to just set the whole object.
-                    const newAttendance = { ...attendance };
-                    delete newAttendance[name];
-                    batch.set(attendanceDocRef, {records: newAttendance});
+        window.removeStudent = async (name) => {
+            try {
+                const batch = writeBatch(db);
+                // Remove from student list
+                batch.update(studentsDocRef, { names: arrayRemove(name) });
+                // Remove from today's attendance
+                const attendanceUpdate = {};
+                attendanceUpdate[`records.${name}`] = null; // This requires server-side handling to delete, simpler to just set the whole object.
+                const newAttendance = { ...attendance };
+                delete newAttendance[name];
+                batch.set(attendanceDocRef, {records: newAttendance});
 
-                    await batch.commit();
-                    
-                    select.value = '';
-                    showNotification(`${name} 已移除`, 'success');
-                } catch (error) {
-                    console.error("Error removing student:", error);
-                    showNotification("移除學生失敗", "error");
-                }
+                await batch.commit();
+                
+                document.getElementById('removeStudentSelect').value = '';
+                closeModal('customConfirmModal');
+                showNotification(`${name} 已移除`, 'success');
+            } catch (error) {
+                console.error("Error removing student:", error);
+                showNotification("移除學生失敗", "error");
             }
         };
 
@@ -800,6 +813,15 @@
             const modal = document.getElementById(modalId);
             if(modal) modal.style.display = 'none';
         };
+        
+        window.showCustomConfirm = (message, onConfirm) => {
+            document.getElementById('confirmMessage').textContent = message;
+            const confirmBtn = document.getElementById('confirmActionBtn');
+            confirmBtn.onclick = () => {
+                onConfirm();
+            };
+            showModal('customConfirmModal');
+        };
 
         function showNotification(message, type = 'success') {
             const notification = document.getElementById('notification');
@@ -824,4 +846,3 @@
     </script>
 </body>
 </html>
-

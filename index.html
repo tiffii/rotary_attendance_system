@@ -485,8 +485,8 @@
     <script type="module">
         // Import Firebase modules
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, updateDoc, onSnapshot, arrayUnion, arrayRemove, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- Global variables ---
         let students = [];
@@ -501,10 +501,9 @@
         let studentsUnsubscribe, attendanceUnsubscribe;
 
         // --- Firebase Configuration ---
-        // We use the global variables provided by the Canvas environment for a more reliable connection
-        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'roll-call-app-default';
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // 使用預設的 Firebase 配置，以確保具有正確的 Firestore 權限。
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // --- Initialization ---
         document.addEventListener('DOMContentLoaded', async () => {
@@ -515,17 +514,17 @@
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-
-                // Set up document references
-                studentsDocRef = doc(db, `artifacts/${appId}/public/data/students`, "studentList");
-                attendanceDocRef = doc(db, `artifacts/${appId}/public/data/attendance`, currentDateKey);
-
-                // Authenticate and then set up data listeners
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
+                
+                // 使用提供的自定義令牌登入，以獲得必要的權限
+                if (typeof __initial_auth_token !== 'undefined') {
+                    await signInWithCustomToken(auth, __initial_auth_token);
                 } else {
                     await signInAnonymously(auth);
                 }
+                
+                // Set up document references
+                studentsDocRef = doc(db, `artifacts/${appId}/public/data/students`, "studentList");
+                attendanceDocRef = doc(db, `artifacts/${appId}/public/data/attendance`, currentDateKey);
 
                 // Listen for authentication state changes and set up data listeners
                 onAuthStateChanged(auth, async (user) => {
@@ -536,14 +535,14 @@
                         initDataListeners();
                     } else {
                         console.log("User is not signed in.");
-                        document.getElementById('studentGrid').innerHTML = '<p style="color: red;">身份驗證失敗，請重新載入頁面。</p>';
+                        document.getElementById('studentGrid').innerHTML = '<p style="color: red;">身份驗證失敗，請檢查您的 Firebase 配置。</p>';
                     }
                 });
 
             } catch (error) {
                 console.error("Firebase Initialization Error:", error);
-                showNotification("無法連接到資料庫，請檢查設定。", "error");
-                document.getElementById('studentGrid').innerHTML = '<p style="color: red;">資料庫連接失敗，請刷新頁面重試。</p>';
+                showNotification("無法連接到資料庫，請檢查您的 Firebase 配置。", "error");
+                document.getElementById('studentGrid').innerHTML = '<p style="color: red;">資料庫連接失敗，請檢查您的 Firebase 配置並刷新頁面。</p>';
             }
             
             setupEventListeners();
@@ -725,8 +724,6 @@
                 // Remove from student list
                 batch.update(studentsDocRef, { names: arrayRemove(name) });
                 // Remove from today's attendance
-                const attendanceUpdate = {};
-                attendanceUpdate[`records.${name}`] = null; // This requires server-side handling to delete, simpler to just set the whole object.
                 const newAttendance = { ...attendance };
                 delete newAttendance[name];
                 batch.set(attendanceDocRef, {records: newAttendance});

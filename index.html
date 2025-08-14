@@ -44,7 +44,7 @@
         }
 
         .header {
-            background: linear-gradient(45deg, var(--color-blue), #4c7b8c);
+            background: linear-gradient(45deg, #83aa87, #729175);
             color: white;
             padding: 30px;
             text-align: center;
@@ -351,7 +351,7 @@
         }
 
         .btn-purple {
-            background: linear-gradient(45deg, #83aa87, #729175);
+            background: linear-gradient(45deg, var(--color-blue), #4c7b8c);
             color: white;
         }
 
@@ -401,9 +401,18 @@
         }
 
         .connected {
-            background: rgba(76, 175, 80, 0.2);
-            color: var(--color-green);
-        }
+    /* 調整背景色，使其更為飽和 */
+    background: #4CAF50; /* 直接使用綠色變數 */
+    /* 讓文字顏色保持白色以增加對比 */
+    color: white; 
+    /* 增加陰影效果 */
+    box-shadow: 0 2px 4px rgba(0, 100, 0, 0.2); 
+}
+
+/* 可以為滑鼠懸停時增加動畫效果 */
+.connected:hover {
+    transform: scale(1.05);
+}
 
         .disconnected {
             background: rgba(226, 100, 72, 0.2);
